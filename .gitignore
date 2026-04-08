@@ -1,0 +1,9 @@
+*cache*
+data/
+!src/*/data
+*.egg-info
+.DS_STORE
+.vscode
+project_plan*
+!project_plan.tex
+implementation-plan.md

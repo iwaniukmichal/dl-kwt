@@ -1,0 +1,49 @@
+\documentclass[a4paper,11pt]{report}
+
+% ===================== Mathematics =====================
+\usepackage{amsmath, amsfonts, amsthm, latexsym}
+
+% ===================== Lists and general table tools =====================
+\usepackage{enumitem}
+\usepackage{array}
+
+% ===================== Figures, graphics, and drawing =====================
+\usepackage{graphicx}   % inserting images
+\usepackage{svg}        % inserting SVG graphics
+\usepackage{tikz}       % drawing diagrams in LaTeX
+\usepackage{xcolor}     % colors
+
+% ===================== Tables =====================
+\usepackage{booktabs}       % professional table rules
+\usepackage{multirow}       % cells spanning multiple rows
+\usepackage{tabularx}       % auto-stretching table columns
+\usepackage{threeparttable} % tables with notes
+
+% ===================== Float and page placement =====================
+\usepackage{float}      % [H] placement
+\usepackage{placeins}   % \FloatBarrier
+\usepackage[final]{pdfpages} % inserting external PDF pages
+
+% ===================== Hyperlinks =====================
+\usepackage[hidelinks]{hyperref}
+
+% ===================== Bibliography =====================
+\usepackage[backend=biber,style=numeric,sorting=nyt]{biblatex}
+\addbibresource{references.bib}
+
+% ===================== Page layout and spacing =====================
+\usepackage[
+  inner=25mm,
+  outer=25mm,
+  top=25mm,
+  bottom=25mm
+]{geometry}
+
+\linespread{1.1}
+\allowdisplaybreaks
+\setlength{\parindent}{15pt}
+
+% ===================== Numbering of figures and tables =====================
+\usepackage{chngcntr}
+\counterwithin{table}{chapter}
+\counterwithin{figure}{chapter}

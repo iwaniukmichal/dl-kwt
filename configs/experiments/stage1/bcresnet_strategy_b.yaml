@@ -1,0 +1,12 @@
+base_configs:
+  - ../../_shared/common.yaml
+  - ../../_shared/backbones/bcresnet.yaml
+
+experiment:
+  id: bcresnet_strategy_b
+  stage: stage1
+
+task:
+  unknown_strategy: b
+
+strategy: {}

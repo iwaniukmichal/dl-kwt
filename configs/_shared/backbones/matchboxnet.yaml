@@ -1,0 +1,38 @@
+frontend:
+  kind: mfcc
+  sample_rate: 16000
+  n_mfcc: 64
+  window_ms: 25.0
+  overlap_ms: 10.0
+  expected_frames: 128
+
+model:
+  name: matchboxnet
+  variant: matchboxnet-3x1x64
+  prologue_channels: 128
+  block_channels: 64
+  subblocks_per_block: 1
+  block_kernels: [13, 15, 17]
+  conv1_kernel: 11
+  conv2_kernel: 29
+  conv2_dilation: 2
+  epilogue_channels: 128
+  dropout: 0.1
+
+train:
+  mode: epochs
+  max_epochs: 200
+  batch_size: 128
+  grad_accumulation_steps: 1
+  optimizer:
+    name: novograd
+    lr: 0.05
+    min_lr: 0.001
+    beta1: 0.95
+    beta2: 0.5
+    weight_decay: 0.001
+  scheduler:
+    name: warmup_hold_decay
+    warmup_epochs: 10
+    hold_epochs: 40
+    min_lr: 0.001

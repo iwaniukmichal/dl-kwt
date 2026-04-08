@@ -1,0 +1,31 @@
+frontend:
+  kind: log_mel
+  sample_rate: 16000
+  n_mels: 40
+  window_ms: 30.0
+  hop_ms: 10.0
+  expected_frames: 98
+
+model:
+  name: bcresnet
+  variant: bcresnet-3
+  base_channels: 24
+  stage_blocks: [2, 2, 4, 4]
+  stride_stages: [1, 2]
+  spec_groups: 5
+  dropout: 0.1
+
+train:
+  mode: epochs
+  max_epochs: 200
+  batch_size: 100
+  grad_accumulation_steps: 1
+  optimizer:
+    name: sgd
+    lr: 0.1
+    momentum: 0.9
+    weight_decay: 0.001
+  scheduler:
+    name: cosine
+    warmup_epochs: 5
+    min_lr_ratio: 0.0

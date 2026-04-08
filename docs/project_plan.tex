@@ -1,0 +1,182 @@
+
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{float}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+
+\title{\textbf{Speech Recognition Deep Learning Project Plan}\\
+\large TensorFlow Speech Recognition Challenge / Speech Commands v0.01}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+
+\section{Dataset and task definition}
+
+The training archive contains 1-second, 16 kHz spoken-word clips from 30 word folders -- \texttt{yes, no, up, down, left, right, on, off, stop, go, bed, bird, cat, dog, eight, five, four, happy, house, marvin, nine, one, seven, sheila, six, three, tree, two, wow, zero}. The evaluation target is only the 10 commands, plus the special classes \texttt{unknown} and \texttt{silence}. The \texttt{\_background\_noise\_} folder contains long ambient recordings that should be randomly cut into 1-second segments to form silence training examples. The project will therefore study a 12-class classification task:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Target commands}: \texttt{yes, no, up, down, left, right, on, off, stop, go}
+    \item \textbf{Special classes}: \texttt{unknown}, \texttt{silence}
+\end{itemize}
+
+
+For research experiments, the project should use the official \texttt{validation\_list.txt} and \texttt{testing\_list.txt} split files. This follows the reproducible protocol proposed for Speech Commands and avoids speaker leakage between train/validation/test.
+
+
+\section{Network architectures}
+
+The project compare three model families:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{KWT-1} - Transformer based model.
+    \item \textbf{BC-ResNet-3} - compact CNN and the main convolutional model.
+    \item \textbf{MatchboxNet-3x1x64} - efficient 1D time-channel separable CNN baseline.
+\end{enumerate}
+
+These models are modern enough to give competitive results on Speech Commands while remaining small enough for repeated experimentation \cite{bcresnet,kwt,matchbox}. A summary is given in Table \ref{tab:models}.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{1.8cm} >{\raggedright\arraybackslash}X}
+\toprule
+Model & Default paper frontend & Parameters & Default training setup used in the literature \\
+\midrule
+BC-ResNet-3 \cite{bcresnet} &
+40-dim log-Mel, 30 ms window, 10 ms hop &
+54.2k &
+200 epochs; SGD with momentum 0.9; weight decay \(10^{-3}\); batch size 100; LR warmup to 0.1 for 5 epochs then cosine decay; dropout 0.1; time shift \([-100,100]\) ms; background-noise mixing; SpecAugment. \\
+\addlinespace
+KWT-1 \cite{kwt,kwtrepo} &
+40-dim log-Mel, 30 ms window, 10 ms hop &
+607k &
+23,000 steps; AdamW; LR \(10^{-3}\); batch size 512; cosine schedule; 10 warmup epochs; weight decay 0.1; label smoothing 0.1; time shift, resampling, background perturbation and SpecAugment. \\
+\addlinespace
+MatchboxNet-3x1x64 \cite{matchbox} &
+64 MFCC, 25 ms windows, 10 ms overlap, padded to 128 frames &
+77k &
+200 epochs; NovoGrad (\(\beta_1=0.95, \beta_2=0.5\)); max LR 0.05, min LR 0.001; warmup-hold-decay schedule; weight decay \(10^{-3}\); mixed precision; batch size 128 per GPU; time shift, white noise, SpecAugment and SpecCutout. \\
+\bottomrule
+\end{tabularx}
+\caption{Models and their default paper settings}
+\label{tab:models}
+\end{table}
+
+
+
+\section{Audio preprocessing}
+
+\subsection{Primary models frontend}
+
+To isolate architectural differences, the \textbf{primary comparison should use one shared frontend}: 40-bin log-Mel spectrograms extracted from 1-second clips using a 30 ms window and 10 ms hop, which yields approximately 98 time frames by 40 frequency bins per example. Each clip should be padded or cropped to 1 second before feature extraction.
+
+\subsection{Baseline model frontend}
+
+MatchboxNet was originally reported with a different frontend: 64 MFCC features computed from 25 ms windows with 10 ms overlap, padded to 128 feature vectors per sample \cite{matchbox}.
+
+\subsection{Augmentation}
+
+A good shared augmentation baseline is:
+\begin{itemize}[leftmargin=*]
+    \item random time shift,
+    \item random mixing with background-noise clips from \texttt{\_background\_noise\_},
+    \item SpecAugment (time masking, frequency masking)
+\end{itemize}
+
+BC-ResNet and KWT both use time shifting, background perturbation and SpecAugment-like masking; MatchboxNet also uses time shift plus strong spectrogram masking and cutout \cite{bcresnet,kwt,matchbox}.
+
+\section{Handling the \texttt{unknown} classes}
+
+This is the most important methodological part of the project. The standard literature setup is to evaluate on 12 classes, where the remaining 20 training words are treated as \texttt{unknown} and silence is synthesized from background noise. The project compare four strategies.
+
+\subsection*{Strategy A - post-hoc remapping}
+
+Train on all 31 (30 commands + \texttt{silence}) original labels, then remap any non-target prediction to \texttt{unknown} at inference time. This strategy is simple, but it is not well aligned with the final objective because the model spends capacity separating the 20 non-target words even though the final task only asks whether they belong to a single \texttt{unknown} bucket.
+
+\subsection*{Strategy B - collapsed training labels (recommended main baseline)}
+
+Collapse all 20 non-target words into a single \texttt{unknown} label before training, add \texttt{silence} examples from \texttt{\_background\_noise\_}, and train a 12-class classifier directly. This is the most standard and task-aligned protocol, and it is the setup followed by BC-ResNet and many Speech Commands papers \cite{bcresnet}. 
+
+To prevent the \texttt{unknown} category from dominating training, non-target word classes will be rebalanced so that the total number of \texttt{unknown}/outlier examples is approximately equal to the average size of the target keyword classes. Examples will be sampled in a class-aware manner, drawing a similar number of samples from each non-target word class to preserve diversity within the \texttt{unknown} category and avoid over-representation of a few frequent classes.
+
+\subsection*{Strategy C - two-stage classification}
+
+A hierarchical two-head architecture is used. A shared backbone feeds two classification heads. Head~1 performs 3-way classification into \texttt{silence}, \texttt{unknown}, and \texttt{keyword}. Head~2 performs 10-way classification over the target keywords. During training, the loss of Head~1 is computed for all samples using standard cross-entropy with the corresponding 3-class target. The loss of Head~2 is computed only for samples whose ground-truth label belongs to the 10 target keywords; for \texttt{silence} and \texttt{unknown} samples, the Head~2 loss is masked out and does not contribute to optimization. The total loss is therefore
+\[
+\mathcal{L} = \mathcal{L}_{\text{head1}} + \lambda \,\mathbf{1}[y \in \mathcal{K}]\, \mathcal{L}_{\text{head2}},
+\]
+where \(\mathcal{K}\) denotes the set of 10 target keywords, and \(\lambda\) is a scalar weight controlling the contribution of the second head (\(\lambda\) = 1 at first, and tuned later if needed). During inference, the prediction of Head~1 is used first; Head~2 is consulted only when Head~1 predicts \texttt{keyword}.
+
+For the hierarchical 3-way head (\texttt{silence}/\texttt{unknown}/\texttt{keyword}), class imbalance will be handled by balanced sampling minibatches so that silence, unknown, and keyword are sampled in roughly equal proportions.
+
+\subsection*{Strategy D - confidence-based rejection with uniform targets}
+
+This strategy is inspired by \textit{Deep Anomaly Detection with Outlier Exposure} \cite{oe}.
+\\
+
+Train only an 11-class classifier for the known classes (\texttt{10 commands + silence}). For non-target training words, encourage a uniform output distribution over the 11 known classes (i.e., the target label for unknown class becomes \([1/11, \dots, 1/11]\)). Then, classify a sample as \texttt{unknown} at inference time if
+\[
+\max_k p(y = k \mid x) < \tau.
+\]
+The threshold \(\tau\) is tuned on the validation set. For fairness, the non-target word pool will use the same class-aware balancing policy as in Strategy~B, so that outlier exposure remains diverse without overwhelming the target keyword classes.
+
+
+\section{Experimental protocol}
+
+The study is organized in two stages. In the first stage, each of the three model families will be trained from scratch under all four unknown-handling strategies using literature-based default settings, the official \texttt{train}/\texttt{validation}/\texttt{test} split files, and each model's standard frontend. BC-ResNet-3 and KWT-1 will use 40-bin log-Mel features, while MatchboxNet-3x1x64 will use its native 64-dimensional MFCC frontend. For Strategy~D, the confidence threshold \(\tau\) will be tuned on the validation set, and a threshold sweep will be reported to show how the validation metrics vary with \(\tau\). In this stage, all models will be trained with a minimal shared augmentation baseline consisting of random time shift and background-noise mixing, while SpecAugment is disabled.
+
+In the second stage, augmentation will be studied only for the best unknown-handling strategy of each backbone using a \(2\times2\times2\) grid (Table~\ref{tab:aug_grid}).
+
+\begin{table}[h]
+\centering
+\caption{Augmentation grid factors and their off/on settings.}
+\label{tab:aug_grid}
+\begin{tabular}{llp{6.5cm}}
+\toprule
+\textbf{Factor} & \textbf{Off} & \textbf{On} \\
+\midrule
+Time shift & --- & Uniform random shift in $[-100, 100]$\,ms \\
+Background noise & --- & Mixed with $p{=}0.8$; random 1\,s crop from \texttt{\_background\_noise\_}, gain $\alpha \sim U(0, 0.3)$ \\
+SpecAugment & --- & One time mask (max 10 frames) $+$ one frequency mask (max 5 bins) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Model selection will be based primarily on validation 12-class macro-F1. Final test-set results will report: 12-class accuracy; 12-class macro-F1; macro-F1 over the ten target commands only; per-class precision, recall, and F1; and raw and row-normalized confusion matrices for all 12 classes.
+
+
+
+\begin{thebibliography}{99}
+
+\bibitem{bcresnet}
+B. Kim, M. Lee, J. Lee, S. Yang, and K. Hwang, ``Broadcasted Residual Learning for Efficient Keyword Spotting,'' Interspeech, 2021. \url{https://arxiv.org/abs/2106.04140}
+
+\bibitem{kwt}
+A. Berg, M. O'Connor, and M. Tairum Cruz, ``Keyword Transformer: A Self-Attention Model for Keyword Spotting,'' Interspeech, 2021. \url{https://arxiv.org/abs/2104.00769}
+
+\bibitem{kwtrepo}
+ARM Software, ``keyword-transformer'' (official implementation and training scripts). \url{https://github.com/ARM-software/keyword-transformer}
+
+\bibitem{matchbox}
+S. Majumdar and B. Ginsburg, ``MatchboxNet: 1D Time-Channel Separable Convolutional Neural Network Architecture for Speech Commands Recognition,'' Interspeech, 2020. \url{https://arxiv.org/abs/2004.08531}
+
+\bibitem{oe}
+D. Hendrycks, M. Mazeika, and T. Dietterich, ``Deep Anomaly Detection with Outlier Exposure,'' arXiv:1812.04606, 2018. \url{https://arxiv.org/abs/1812.04606}
+
+\end{thebibliography}
+
+\end{document}

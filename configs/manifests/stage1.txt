@@ -1,0 +1,12 @@
+configs/experiments/stage1/bcresnet_strategy_a.yaml
+configs/experiments/stage1/bcresnet_strategy_b.yaml
+configs/experiments/stage1/bcresnet_strategy_c.yaml
+configs/experiments/stage1/bcresnet_strategy_d.yaml
+configs/experiments/stage1/kwt_strategy_a.yaml
+configs/experiments/stage1/kwt_strategy_b.yaml
+configs/experiments/stage1/kwt_strategy_c.yaml
+configs/experiments/stage1/kwt_strategy_d.yaml
+configs/experiments/stage1/matchboxnet_strategy_a.yaml
+configs/experiments/stage1/matchboxnet_strategy_b.yaml
+configs/experiments/stage1/matchboxnet_strategy_c.yaml
+configs/experiments/stage1/matchboxnet_strategy_d.yaml

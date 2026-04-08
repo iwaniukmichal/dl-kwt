@@ -1,0 +1,54 @@
+paths:
+  audio_root: data/audio
+  validation_list: data/validation_list.txt
+  testing_list: data/testing_list.txt
+  prepared_root: data/prepared
+  output_root: outputs
+
+experiment:
+  seed: 1337
+  device: cuda
+  amp: true
+  deterministic: false
+
+task:
+  clip_duration_sec: 1.0
+  target_keywords:
+    - yes
+    - no
+    - up
+    - down
+    - left
+    - right
+    - on
+    - off
+    - stop
+    - go
+
+augment:
+  time_shift:
+    enabled: true
+    max_shift_ms: 100.0
+  background_noise:
+    enabled: true
+    probability: 0.8
+    gain_min: 0.0
+    gain_max: 0.3
+  specaugment:
+    enabled: false
+    time_masks: 1
+    time_mask_width: 10
+    freq_masks: 1
+    freq_mask_width: 5
+
+data:
+  num_workers: 4
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+
+evaluation:
+  batch_size: 256
+
+outputs:
+  on_exists: skip

@@ -1,0 +1,17 @@
+base_configs:
+  - ../../_shared/common.yaml
+  - ../../_shared/backbones/kwt.yaml
+
+experiment:
+  id: kwt_strategy_d
+  stage: stage1
+
+task:
+  unknown_strategy: d
+
+strategy:
+  oe_weight: 1.0
+  tau_sweep:
+    start: 0.0
+    stop: 1.0
+    step: 0.01
