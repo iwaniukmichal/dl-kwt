@@ -11,8 +11,8 @@ model:
   variant: kwt-1
   attention_type: time
   d_model: 64
-  num_heads: 1
-  depth: 12
+  num_heads: 2
+  depth: 4
   dropout: 0.1
   mlp_dim: 256
   max_frames: 98
