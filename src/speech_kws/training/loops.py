@@ -73,7 +73,13 @@ def _forward_model(
     augment_config: dict,
     training: bool,
 ) -> dict:
-    features = frontend(batch["waveform"])
+    waveform_device = batch["waveform"].device
+    frontend_context = nullcontext()
+    if waveform_device.type in {"cpu", "cuda"}:
+        frontend_context = torch.autocast(device_type=waveform_device.type, enabled=False)
+
+    with frontend_context:
+        features = frontend(batch["waveform"].float())
     specaugment_cfg = augment_config.get("specaugment", {})
     if training and specaugment_cfg.get("enabled", False):
         features = apply_specaugment(
