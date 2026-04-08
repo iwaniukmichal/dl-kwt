@@ -26,13 +26,9 @@ class MultiHeadSelfAttention(nn.Module):
         query = self._split_heads(self.query(inputs))
         key = self._split_heads(self.key(inputs))
         value = self._split_heads(self.value(inputs))
-        # Keep attention score and softmax math in fp32 to avoid AMP-related overflows.
-        query_fp32 = query.float()
-        key_fp32 = key.float()
-        value_fp32 = value.float()
-        attention_scores = torch.matmul(query_fp32, key_fp32.transpose(-2, -1)) / (self.head_dim**0.5)
+        attention_scores = torch.matmul(query, key.transpose(-2, -1)) / (self.head_dim**0.5)
         attention_weights = attention_scores.softmax(dim=-1)
-        attended = torch.matmul(attention_weights, value_fp32).to(dtype=inputs.dtype)
+        attended = torch.matmul(attention_weights, value)
         attended = attended.transpose(1, 2).contiguous().view(inputs.size(0), inputs.size(1), self.embed_dim)
         return self.combine(attended)
 
