@@ -18,7 +18,7 @@ model:
 train:
   mode: epochs
   max_epochs: 200
-  batch_size: 100
+  batch_size: 256
   grad_accumulation_steps: 1
   optimizer:
     name: sgd
@@ -27,5 +27,5 @@ train:
     weight_decay: 0.001
   scheduler:
     name: cosine
-    warmup_epochs: 5
-    min_lr_ratio: 0.0
+    warmup_epochs: 10
+    min_lr_ratio: 0.1
