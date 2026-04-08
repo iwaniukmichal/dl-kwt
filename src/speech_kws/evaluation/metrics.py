@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Sequence
 
-import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, precision_recall_fscore_support
 
@@ -77,6 +76,8 @@ def save_confusion_plot(
     title: str,
     value_format: str = ".2f",
 ) -> None:
+    import matplotlib.pyplot as plt
+
     destination = Path(destination)
     ensure_dir(destination.parent)
     matrix_arr = np.asarray(matrix)

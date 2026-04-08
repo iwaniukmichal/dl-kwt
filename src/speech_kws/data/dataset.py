@@ -140,13 +140,16 @@ class SpeechCommandsDataset(Dataset):
     def keyword_count(self) -> int:
         return len(self.indices_by_kind[KEYWORD_SUPERCLASS])
 
-    def _read_wav_frames(self, path: str | Path, frame_offset: int, num_frames: int) -> tuple[torch.Tensor, int]:
+    def _read_wav_crop(self, path: str | Path, start_sec: float) -> tuple[torch.Tensor, int]:
+        target_duration_sec = self.clip_num_samples / float(self.sample_rate)
         with wave.open(str(path), "rb") as handle:
             num_channels = handle.getnchannels()
             sample_width = handle.getsampwidth()
             sample_rate = handle.getframerate()
             total_frames = handle.getnframes()
 
+            frame_offset = int(round(start_sec * sample_rate))
+            num_frames = int(round(target_duration_sec * sample_rate))
             start_frame = min(max(0, frame_offset), total_frames)
             handle.setpos(start_frame)
             raw_frames = handle.readframes(max(0, num_frames))
@@ -183,16 +186,7 @@ class SpeechCommandsDataset(Dataset):
         return resampled.squeeze(0)
 
     def _load_audio_crop(self, record: dict) -> torch.Tensor:
-        target_duration_sec = self.clip_num_samples / float(self.sample_rate)
-        with wave.open(str(record["abs_path"]), "rb") as handle:
-            file_sample_rate = handle.getframerate()
-        frame_offset = int(round(float(record["start_sec"]) * file_sample_rate))
-        source_num_frames = int(round(target_duration_sec * file_sample_rate))
-        waveform, file_sample_rate = self._read_wav_frames(
-            record["abs_path"],
-            frame_offset=frame_offset,
-            num_frames=source_num_frames,
-        )
+        waveform, file_sample_rate = self._read_wav_crop(record["abs_path"], start_sec=float(record["start_sec"]))
         if waveform.size(0) > 1:
             waveform = waveform.mean(dim=0, keepdim=True)
         return self._resample_waveform(waveform, source_rate=file_sample_rate)

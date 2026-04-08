@@ -31,19 +31,24 @@ class AudioFrontend(nn.Module):
             window_samples = int(self.sample_rate * float(config.get("window_ms", 25.0)) / 1000.0)
             overlap_samples = int(self.sample_rate * float(config.get("overlap_ms", 10.0)) / 1000.0)
             hop_samples = max(1, window_samples - overlap_samples)
+            n_mfcc = int(config.get("n_mfcc", 64))
+            n_freqs = (window_samples // 2) + 1
+            # Keep the default mel bank explicit and bounded by the FFT resolution.
+            n_mels = int(config.get("n_mels", min(max(n_mfcc, 40), n_freqs)))
             self.transform = torchaudio.transforms.MFCC(
                 sample_rate=self.sample_rate,
-                n_mfcc=int(config.get("n_mfcc", 64)),
+                n_mfcc=n_mfcc,
                 log_mels=True,
                 melkwargs={
                     "n_fft": window_samples,
                     "win_length": window_samples,
                     "hop_length": hop_samples,
+                    "n_mels": n_mels,
                     "center": False,
                 },
             )
             self.to_db = None
-            self.feature_dim = int(config.get("n_mfcc", 64))
+            self.feature_dim = n_mfcc
             self.expected_frames = int(config.get("expected_frames", 128))
         else:
             raise ValueError(f"Unsupported frontend kind: {self.kind}")

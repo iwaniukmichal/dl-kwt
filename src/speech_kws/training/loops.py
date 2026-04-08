@@ -5,7 +5,6 @@ import sys
 from contextlib import nullcontext
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -274,6 +273,8 @@ def _save_learning_curve(history_rows: list[dict], destination: Path) -> None:
     if not history_rows:
         return
 
+    import matplotlib.pyplot as plt
+
     ensure_dir(destination.parent)
     x_key = "step" if any(row.get("step") is not None for row in history_rows) else "epoch"
     x_values = [row.get(x_key) for row in history_rows]
@@ -397,11 +398,113 @@ def _build_dataloaders(config: dict, seed: int, device: torch.device):
     return train_loader, val_loader, test_loader
 
 
+def _loss_component_summary(loss_dict: dict) -> dict[str, float]:
+    summary: dict[str, float] = {}
+    for key, value in loss_dict.items():
+        if torch.is_tensor(value):
+            summary[key] = float(value.detach().item())
+        else:
+            summary[key] = float(value)
+    return summary
+
+
+def _raise_nonfinite_training_error(
+    *,
+    failure_kind: str,
+    experiment_id: str,
+    strategy: str,
+    global_step: int,
+    batch_index: int,
+    learning_rate: float,
+    loss_summary: dict[str, float],
+    parameter_name: str | None = None,
+) -> None:
+    details = [
+        f"Detected non-finite {failure_kind} during training",
+        f"experiment_id={experiment_id}",
+        f"strategy={strategy}",
+        f"global_step={global_step}",
+        f"batch_index={batch_index}",
+        f"learning_rate={learning_rate:.6g}",
+        f"loss_summary={loss_summary}",
+    ]
+    if parameter_name is not None:
+        details.append(f"parameter={parameter_name}")
+    raise RuntimeError("; ".join(details))
+
+
+def _ensure_finite_loss(
+    total_loss: torch.Tensor,
+    *,
+    experiment_id: str,
+    strategy: str,
+    global_step: int,
+    batch_index: int,
+    learning_rate: float,
+    loss_summary: dict[str, float],
+) -> None:
+    if bool(torch.isfinite(total_loss).all().item()):
+        return
+    _raise_nonfinite_training_error(
+        failure_kind="loss",
+        experiment_id=experiment_id,
+        strategy=strategy,
+        global_step=global_step,
+        batch_index=batch_index,
+        learning_rate=learning_rate,
+        loss_summary=loss_summary,
+    )
+
+
+def _ensure_finite_gradients(
+    model: torch.nn.Module,
+    *,
+    experiment_id: str,
+    strategy: str,
+    global_step: int,
+    batch_index: int,
+    learning_rate: float,
+    loss_summary: dict[str, float],
+) -> None:
+    for name, parameter in model.named_parameters():
+        if parameter.grad is None:
+            continue
+        if bool(torch.isfinite(parameter.grad).all().item()):
+            continue
+        _raise_nonfinite_training_error(
+            failure_kind="gradients",
+            experiment_id=experiment_id,
+            strategy=strategy,
+            global_step=global_step,
+            batch_index=batch_index,
+            learning_rate=learning_rate,
+            loss_summary=loss_summary,
+            parameter_name=name,
+        )
+
+
 def _optimizer_step(
     optimizer: torch.optim.Optimizer,
     scheduler,
     scaler,
+    model: torch.nn.Module,
+    experiment_id: str,
+    strategy: str,
+    global_step: int,
+    batch_index: int,
+    loss_summary: dict[str, float],
 ) -> None:
+    if getattr(scaler, "is_enabled", lambda: False)():
+        scaler.unscale_(optimizer)
+    _ensure_finite_gradients(
+        model,
+        experiment_id=experiment_id,
+        strategy=strategy,
+        global_step=global_step,
+        batch_index=batch_index,
+        learning_rate=float(optimizer.param_groups[0]["lr"]),
+        loss_summary=loss_summary,
+    )
     scaler.step(optimizer)
     scaler.update()
     optimizer.zero_grad(set_to_none=True)
@@ -509,18 +612,32 @@ def run_experiment(config: dict) -> dict:
                     total_loss = loss_dict["loss"]
                     scaled_loss = total_loss / grad_accum_steps
 
+                metric_values = _loss_component_summary(loss_dict)
+                _ensure_finite_loss(
+                    total_loss,
+                    experiment_id=experiment_id,
+                    strategy=strategy,
+                    global_step=global_step,
+                    batch_index=batch_index,
+                    learning_rate=float(optimizer.param_groups[0]["lr"]),
+                    loss_summary=metric_values,
+                )
                 scaler.scale(scaled_loss).backward()
-
-                metric_values = {"loss": float(total_loss.detach().item())}
-                for key, value in loss_dict.items():
-                    if key == "loss":
-                        continue
-                    metric_values[key] = float(value if not torch.is_tensor(value) else value.detach().item())
                 for key, value in metric_values.items():
                     loss_sums[key] = loss_sums.get(key, 0.0) + value
 
                 if batch_index % grad_accum_steps == 0 or batch_index == len(train_loader):
-                    _optimizer_step(optimizer, scheduler, scaler)
+                    _optimizer_step(
+                        optimizer,
+                        scheduler,
+                        scaler,
+                        model,
+                        experiment_id,
+                        strategy,
+                        global_step,
+                        batch_index,
+                        metric_values,
+                    )
                     global_step += 1
                 if show_progress:
                     average_loss = loss_sums.get("loss", 0.0) / max(1, num_batches + 1)
@@ -616,19 +733,34 @@ def run_experiment(config: dict) -> dict:
                 total_loss = loss_dict["loss"]
                 scaled_loss = total_loss / grad_accum_steps
 
+            metric_values = _loss_component_summary(loss_dict)
+            _ensure_finite_loss(
+                total_loss,
+                experiment_id=experiment_id,
+                strategy=strategy,
+                global_step=global_step,
+                batch_index=window_batches + 1,
+                learning_rate=float(optimizer.param_groups[0]["lr"]),
+                loss_summary=metric_values,
+            )
             scaler.scale(scaled_loss).backward()
             accumulation_index += 1
-            metric_values = {"loss": float(total_loss.detach().item())}
-            for key, value in loss_dict.items():
-                if key == "loss":
-                    continue
-                metric_values[key] = float(value if not torch.is_tensor(value) else value.detach().item())
             for key, value in metric_values.items():
                 loss_sums[key] = loss_sums.get(key, 0.0) + value
             window_batches += 1
 
             if accumulation_index >= grad_accum_steps:
-                _optimizer_step(optimizer, scheduler, scaler)
+                _optimizer_step(
+                    optimizer,
+                    scheduler,
+                    scaler,
+                    model,
+                    experiment_id,
+                    strategy,
+                    global_step,
+                    window_batches,
+                    metric_values,
+                )
                 global_step += 1
                 accumulation_index = 0
                 progress.update(1)

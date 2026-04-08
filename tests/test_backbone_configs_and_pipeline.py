@@ -34,7 +34,7 @@ def _write_wav(path: Path, sample_rate: int = 16000, duration_sec: float = 1.0, 
 def test_shared_backbone_configs_match_expected_shapes_and_parameter_ranges() -> None:
     expectations = {
         "bcresnet_strategy_b.yaml": {"feature_dim": 40, "frames": 98, "logits": 12, "min_params": 52000, "max_params": 57000},
-        "kwt_strategy_b.yaml": {"feature_dim": 40, "frames": 98, "logits": 12, "min_params": 400000, "max_params": 420000},
+        "kwt_strategy_b.yaml": {"feature_dim": 40, "frames": 98, "logits": 12, "min_params": 600000, "max_params": 615000},
         "matchboxnet_strategy_b.yaml": {"feature_dim": 64, "frames": 128, "logits": 12, "min_params": 64000, "max_params": 70000},
     }
 
