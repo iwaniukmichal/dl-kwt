@@ -9,7 +9,7 @@ from speech_kws.audio.frontend import AudioFrontend
 from speech_kws.config import load_config
 from speech_kws.models.wrappers import build_model
 from speech_kws.training.losses import compute_strategy_loss, uniform_target_loss
-from speech_kws.training.loops import _build_dataloaders, run_experiment
+from speech_kws.training.loops import _build_dataloaders, _resolve_dataloader_settings, run_experiment
 
 
 STAGE1_CONFIG_NAMES = sorted(path.name for path in Path("configs/experiments/stage1").glob("*.yaml"))
@@ -156,6 +156,53 @@ def test_uniform_target_loss_is_finite_for_extreme_logits() -> None:
     assert bool(torch.isfinite(loss).all().item())
     assert logits.grad is not None
     assert bool(torch.isfinite(logits.grad).all().item())
+
+
+def test_resolve_dataloader_settings_uses_available_cpu_workers_for_auto(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from speech_kws.training import loops
+
+    monkeypatch.setattr(loops, "_available_cpu_worker_count", lambda: 6)
+
+    settings = _resolve_dataloader_settings(
+        {
+            "data": {
+                "num_workers": "auto",
+                "pin_memory": True,
+                "persistent_workers": True,
+                "prefetch_factor": 4,
+            }
+        },
+        device=torch.device("cuda"),
+    )
+
+    assert settings["requested_num_workers"] == "auto"
+    assert settings["available_cpu_workers"] == 6
+    assert settings["num_workers"] == 6
+    assert settings["pin_memory"] is True
+    assert settings["persistent_workers"] is True
+    assert settings["prefetch_factor"] == 4
+
+
+def test_resolve_dataloader_settings_disables_worker_only_options_when_zero() -> None:
+    settings = _resolve_dataloader_settings(
+        {
+            "data": {
+                "num_workers": 0,
+                "pin_memory": True,
+                "persistent_workers": True,
+                "prefetch_factor": 4,
+            }
+        },
+        device=torch.device("cpu"),
+    )
+
+    assert settings["requested_num_workers"] == 0
+    assert settings["num_workers"] == 0
+    assert settings["pin_memory"] is False
+    assert settings["persistent_workers"] is False
+    assert settings["prefetch_factor"] is None
 
 
 def test_run_experiment_raises_on_nonfinite_loss(

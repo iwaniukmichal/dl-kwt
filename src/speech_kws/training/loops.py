@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 import sys
 from contextlib import nullcontext
 from pathlib import Path
@@ -64,6 +65,47 @@ def _move_batch_to_device(batch: dict, device: torch.device) -> dict:
 
 def _progress_enabled() -> bool:
     return sys.stderr.isatty()
+
+
+def _available_cpu_worker_count() -> int:
+    if hasattr(os, "sched_getaffinity"):
+        try:
+            return max(1, len(os.sched_getaffinity(0)))
+        except OSError:
+            pass
+
+    cpu_count = os.cpu_count()
+    return max(1, int(cpu_count) if cpu_count is not None else 1)
+
+
+def _resolve_dataloader_settings(config: dict, device: torch.device) -> dict[str, int | bool | str | None]:
+    data_config = config.get("data", {})
+    requested_num_workers = data_config.get("num_workers", "auto")
+    available_cpu_workers = _available_cpu_worker_count()
+
+    if requested_num_workers is None:
+        normalized_num_workers: int | str = "auto"
+    elif isinstance(requested_num_workers, str):
+        normalized_requested = requested_num_workers.strip().lower()
+        normalized_num_workers = "auto" if normalized_requested == "auto" else int(normalized_requested)
+    else:
+        normalized_num_workers = int(requested_num_workers)
+
+    num_workers = available_cpu_workers if normalized_num_workers == "auto" else int(normalized_num_workers)
+    if num_workers < 0:
+        raise ValueError("data.num_workers must be >= 0 or 'auto'")
+
+    pin_memory = bool(data_config.get("pin_memory", False)) and device.type == "cuda"
+    persistent_workers = bool(data_config.get("persistent_workers", True)) if num_workers > 0 else False
+    prefetch_factor = int(data_config.get("prefetch_factor", 2)) if num_workers > 0 else None
+    return {
+        "requested_num_workers": normalized_num_workers,
+        "available_cpu_workers": available_cpu_workers,
+        "num_workers": num_workers,
+        "pin_memory": pin_memory,
+        "persistent_workers": persistent_workers,
+        "prefetch_factor": prefetch_factor,
+    }
 
 
 def _forward_model(
@@ -332,13 +374,18 @@ def _load_checkpoint(path: Path, model: torch.nn.Module, device: torch.device) -
     return checkpoint
 
 
-def _build_dataloaders(config: dict, seed: int, device: torch.device):
-    data_config = config.get("data", {})
+def _build_dataloaders(
+    config: dict,
+    seed: int,
+    device: torch.device,
+    loader_settings: dict[str, int | bool | str | None] | None = None,
+):
     batch_size = int(config["train"]["batch_size"])
-    num_workers = int(data_config.get("num_workers", 0))
-    pin_memory = bool(data_config.get("pin_memory", False)) and device.type == "cuda"
-    persistent_workers = bool(data_config.get("persistent_workers", True)) if num_workers > 0 else False
-    prefetch_factor = int(data_config.get("prefetch_factor", 2)) if num_workers > 0 else None
+    loader_settings = _resolve_dataloader_settings(config, device) if loader_settings is None else loader_settings
+    num_workers = int(loader_settings["num_workers"])
+    pin_memory = bool(loader_settings["pin_memory"])
+    persistent_workers = bool(loader_settings["persistent_workers"])
+    prefetch_factor = loader_settings["prefetch_factor"]
     clip_duration_sec = float(config["task"].get("clip_duration_sec", 1.0))
     sample_rate = int(config["frontend"].get("sample_rate", 16000))
     prepared_root = config["paths"]["prepared_root"]
@@ -538,7 +585,24 @@ def run_experiment(config: dict) -> dict:
     device = _device_from_config(config["experiment"])
     amp_enabled = bool(config["experiment"].get("amp", True)) and device.type == "cuda"
 
-    train_loader, val_loader, test_loader = _build_dataloaders(config, seed, device=device)
+    loader_settings = _resolve_dataloader_settings(config, device)
+    loader_info_parts = [
+        f"requested_workers={loader_settings['requested_num_workers']}",
+        f"available_cpu_workers={loader_settings['available_cpu_workers']}",
+        f"using_workers={loader_settings['num_workers']}",
+        f"pin_memory={loader_settings['pin_memory']}",
+        f"persistent_workers={loader_settings['persistent_workers']}",
+    ]
+    if loader_settings["prefetch_factor"] is not None:
+        loader_info_parts.append(f"prefetch_factor={loader_settings['prefetch_factor']}")
+    print(f"DataLoader info: {', '.join(loader_info_parts)}", flush=True)
+
+    train_loader, val_loader, test_loader = _build_dataloaders(
+        config,
+        seed,
+        device=device,
+        loader_settings=loader_settings,
+    )
     frontend = AudioFrontend(config["frontend"]).to(device)
     model = build_model(
         model_config=config["model"],
@@ -572,6 +636,7 @@ def run_experiment(config: dict) -> dict:
             "device": str(device),
             "amp_enabled": amp_enabled,
             "seed": seed,
+            "dataloader": loader_settings,
             "git_commit": get_git_commit(REPO_ROOT),
         },
     )

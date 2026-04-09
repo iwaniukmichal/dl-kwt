@@ -24,6 +24,7 @@ from speech_kws.training.loops import (  # noqa: E402
     _device_from_config,
     _forward_model,
     _move_batch_to_device,
+    _resolve_dataloader_settings,
 )
 from speech_kws.training.optim import build_optimizer  # noqa: E402
 from speech_kws.utils.reproducibility import set_global_seed  # noqa: E402
@@ -160,7 +161,8 @@ def main(argv: list[str] | None = None) -> int:
     seed = int(config["experiment"]["seed"])
     set_global_seed(seed, deterministic=bool(config["experiment"].get("deterministic", False)))
     device = _device_from_config(config["experiment"])
-    train_loader, _, _ = _build_dataloaders(config, seed=seed, device=device)
+    loader_settings = _resolve_dataloader_settings(config, device=device)
+    train_loader, _, _ = _build_dataloaders(config, seed=seed, device=device, loader_settings=loader_settings)
 
     report = {
         "config_path": str(Path(args.config).resolve()),
@@ -169,7 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         "device": str(device),
         "batch_size": int(config["train"]["batch_size"]),
         "grad_accumulation_steps": int(config["train"].get("grad_accumulation_steps", 1)),
-        "num_workers": int(config.get("data", {}).get("num_workers", 0)),
+        "num_workers": int(loader_settings["num_workers"]),
+        "dataloader": loader_settings,
         "loader_only": _loader_profile(train_loader, args.num_batches),
         "train_step": _train_step_profile(config, train_loader, device, args.num_batches),
     }

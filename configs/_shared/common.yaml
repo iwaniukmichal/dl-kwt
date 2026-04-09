@@ -42,7 +42,7 @@ augment:
     freq_mask_width: 5
 
 data:
-  num_workers: 4
+  num_workers: auto
   pin_memory: true
   persistent_workers: true
   prefetch_factor: 2
