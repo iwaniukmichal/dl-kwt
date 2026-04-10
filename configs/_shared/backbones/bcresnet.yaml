@@ -20,11 +20,17 @@ train:
   max_epochs: 100
   batch_size: 512
   grad_accumulation_steps: 1
+  #optimizer:
+  #  name: sgd
+  #  lr: 0.1
+  #  momentum: 0.9
+  #  weight_decay: 0.001
   optimizer:
-    name: sgd
-    lr: 0.1
-    momentum: 0.9
+    name: adamw
+    lr: 0.01
     weight_decay: 0.001
+    beta1: 0.9
+    beta2: 0.999
   scheduler:
     name: cosine
     warmup_epochs: 5

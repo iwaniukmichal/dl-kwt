@@ -43,8 +43,8 @@ The project compare three model families:
 
 \begin{enumerate}[leftmargin=*]
     \item \textbf{KWT-1} - Transformer based model.
-    \item \textbf{BC-ResNet-3} - compact CNN and the main convolutional model.
-    \item \textbf{MatchboxNet-3x1x64} - efficient 1D time-channel separable CNN baseline.
+    \item \textbf{BC-ResNet-1} - compact CNN and the main convolutional model.
+    \item \textbf{MatchboxNet-3x1x64} - efficient 1D time-channel separable CNN.
 \end{enumerate}
 
 These models are modern enough to give competitive results on Speech Commands while remaining small enough for repeated experimentation \cite{bcresnet,kwt,matchbox}. A summary is given in Table \ref{tab:models}.
@@ -56,7 +56,7 @@ These models are modern enough to give competitive results on Speech Commands wh
 \toprule
 Model & Default paper frontend & Parameters & Default training setup used in the literature \\
 \midrule
-BC-ResNet-3 \cite{bcresnet} &
+BC-ResNet-1 \cite{bcresnet} &
 40-dim log-Mel, 30 ms window, 10 ms hop &
 54.2k &
 200 epochs; SGD with momentum 0.9; weight decay \(10^{-3}\); batch size 100; LR warmup to 0.1 for 5 epochs then cosine decay; dropout 0.1; time shift \([-100,100]\) ms; background-noise mixing; SpecAugment. \\
@@ -137,7 +137,7 @@ The threshold \(\tau\) is tuned on the validation set. For fairness, the non-tar
 
 \section{Experimental protocol}
 
-The study is organized in two stages. In the first stage, each of the three model families will be trained from scratch under all four unknown-handling strategies using literature-based default settings, the official \texttt{train}/\texttt{validation}/\texttt{test} split files, and each model's standard frontend. BC-ResNet-3 and KWT-1 will use 40-bin log-Mel features, while MatchboxNet-3x1x64 will use its native 64-dimensional MFCC frontend. For Strategy~D, the confidence threshold \(\tau\) will be tuned on the validation set, and a threshold sweep will be reported to show how the validation metrics vary with \(\tau\). In this stage, all models will be trained with a minimal shared augmentation baseline consisting of random time shift and background-noise mixing, while SpecAugment is disabled.
+The study is organized in two stages. In the first stage, each of the three model families will be trained from scratch under all four unknown-handling strategies using literature-based default settings, the official \texttt{train}/\texttt{validation}/\texttt{test} split files, and each model's standard frontend. BC-ResNet-1 and KWT-1 will use 40-bin log-Mel features, while MatchboxNet-3x1x64 will use its native 64-dimensional MFCC frontend. For Strategy~D, the confidence threshold \(\tau\) will be tuned on the validation set, and a threshold sweep will be reported to show how the validation metrics vary with \(\tau\). In this stage, all models will be trained with a minimal shared augmentation baseline consisting of random time shift and background-noise mixing, while SpecAugment is disabled.
 
 In the second stage, augmentation will be studied only for the best unknown-handling strategy of each backbone using a \(2\times2\times2\) grid (Table~\ref{tab:aug_grid}).
 
