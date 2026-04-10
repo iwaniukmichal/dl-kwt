@@ -1,0 +1,91 @@
+paths:
+  audio_root: /teamspace/studios/this_studio/dl-kwt/data/audio
+  validation_list: /teamspace/studios/this_studio/dl-kwt/data/validation_list.txt
+  testing_list: /teamspace/studios/this_studio/dl-kwt/data/testing_list.txt
+  prepared_root: /teamspace/studios/this_studio/dl-kwt/data/prepared
+  output_root: /teamspace/studios/this_studio/dl-kwt/outputs
+experiment:
+  seed: 1338
+  device: cuda
+  amp: true
+  deterministic: false
+  id: matchboxnet_strategy_a_aug_010
+  stage: stage2
+task:
+  clip_duration_sec: 1.0
+  target_keywords:
+  - true
+  - false
+  - up
+  - down
+  - left
+  - right
+  - true
+  - false
+  - stop
+  - go
+  unknown_strategy: a
+augment:
+  time_shift:
+    enabled: false
+    max_shift_ms: 100.0
+  background_noise:
+    enabled: true
+    probability: 0.8
+    gain_min: 0.0
+    gain_max: 0.3
+  specaugment:
+    enabled: false
+    time_masks: 1
+    time_mask_width: 10
+    freq_masks: 1
+    freq_mask_width: 5
+data:
+  num_workers: auto
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+evaluation:
+  batch_size: 256
+outputs:
+  on_exists: skip
+frontend:
+  kind: mfcc
+  sample_rate: 16000
+  n_mfcc: 64
+  window_ms: 25.0
+  overlap_ms: 10.0
+  expected_frames: 128
+model:
+  name: matchboxnet
+  variant: matchboxnet-3x1x64
+  prologue_channels: 128
+  block_channels: 64
+  subblocks_per_block: 1
+  block_kernels:
+  - 13
+  - 15
+  - 17
+  conv1_kernel: 11
+  conv2_kernel: 29
+  conv2_dilation: 2
+  epilogue_channels: 128
+  dropout: 0.1
+train:
+  mode: epochs
+  max_epochs: 100
+  batch_size: 128
+  grad_accumulation_steps: 1
+  optimizer:
+    name: novograd
+    lr: 0.05
+    min_lr: 0.001
+    beta1: 0.95
+    beta2: 0.5
+    weight_decay: 0.001
+  scheduler:
+    name: warmup_hold_decay
+    warmup_epochs: 5
+    hold_epochs: 40
+    min_lr: 0.001
+strategy: {}
