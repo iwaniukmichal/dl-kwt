@@ -6,7 +6,7 @@ paths:
   output_root: outputs
 
 experiment:
-  seed: 1337
+  seed: 1338
   device: cuda
   amp: true
   deterministic: false
