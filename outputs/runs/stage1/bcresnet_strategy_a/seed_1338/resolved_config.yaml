@@ -1,0 +1,88 @@
+paths:
+  audio_root: /teamspace/studios/this_studio/dl-kwt/data/audio
+  validation_list: /teamspace/studios/this_studio/dl-kwt/data/validation_list.txt
+  testing_list: /teamspace/studios/this_studio/dl-kwt/data/testing_list.txt
+  prepared_root: /teamspace/studios/this_studio/dl-kwt/data/prepared
+  output_root: /teamspace/studios/this_studio/dl-kwt/outputs
+experiment:
+  seed: 1338
+  device: cuda
+  amp: true
+  deterministic: false
+  id: bcresnet_strategy_a
+  stage: stage1
+task:
+  clip_duration_sec: 1.0
+  target_keywords:
+  - true
+  - false
+  - up
+  - down
+  - left
+  - right
+  - true
+  - false
+  - stop
+  - go
+  unknown_strategy: a
+augment:
+  time_shift:
+    enabled: true
+    max_shift_ms: 100.0
+  background_noise:
+    enabled: true
+    probability: 0.8
+    gain_min: 0.0
+    gain_max: 0.3
+  specaugment:
+    enabled: false
+    time_masks: 1
+    time_mask_width: 10
+    freq_masks: 1
+    freq_mask_width: 5
+data:
+  num_workers: auto
+  pin_memory: true
+  persistent_workers: true
+  prefetch_factor: 2
+evaluation:
+  batch_size: 256
+outputs:
+  on_exists: skip
+frontend:
+  kind: log_mel
+  sample_rate: 16000
+  n_mels: 40
+  window_ms: 30.0
+  hop_ms: 10.0
+  expected_frames: 98
+model:
+  name: bcresnet
+  variant: bcresnet-1
+  base_channels: 8
+  stage_blocks:
+  - 2
+  - 2
+  - 4
+  - 4
+  stride_stages:
+  - 1
+  - 2
+  spec_groups: 5
+  dropout: 0.1
+train:
+  mode: epochs
+  max_epochs: 100
+  batch_size: 512
+  grad_accumulation_steps: 1
+  optimizer:
+    name: adamw
+    lr: 0.01
+    weight_decay: 0.001
+    beta1: 0.9
+    beta2: 0.999
+  scheduler:
+    name: cosine
+    warmup_epochs: 5
+    min_lr_ratio: 0.1
+strategy: {}

@@ -1,0 +1,15 @@
+{
+  "amp_enabled": true,
+  "config_source": "/teamspace/studios/this_studio/dl-kwt/configs/experiments/stage1/bcresnet_strategy_d.yaml",
+  "dataloader": {
+    "available_cpu_workers": 16,
+    "num_workers": 16,
+    "persistent_workers": true,
+    "pin_memory": true,
+    "prefetch_factor": 2,
+    "requested_num_workers": "auto"
+  },
+  "device": "cuda",
+  "git_commit": "e40d7f9e12d0d1b13d65f8361ed8f2f31d71c84f",
+  "seed": 1338
+}
