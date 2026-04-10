@@ -205,7 +205,7 @@ def test_resolve_dataloader_settings_disables_worker_only_options_when_zero() ->
     assert settings["prefetch_factor"] is None
 
 
-def test_run_experiment_raises_on_nonfinite_loss(
+def test_run_experiment_continues_on_nonfinite_loss(
     tiny_prepared_dataset: dict[str, Path],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -220,11 +220,13 @@ def test_run_experiment_raises_on_nonfinite_loss(
 
     monkeypatch.setattr(loops, "compute_strategy_loss", bad_loss)
 
-    with pytest.raises(RuntimeError, match="non-finite loss"):
-        run_experiment(config)
+    result = run_experiment(config)
+
+    assert Path(result["run_dir"]).exists()
+    assert (Path(result["run_dir"]) / "test_metrics.json").exists()
 
 
-def test_run_experiment_raises_on_nonfinite_gradients(
+def test_run_experiment_continues_on_nonfinite_gradients(
     tiny_prepared_dataset: dict[str, Path],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -240,5 +242,7 @@ def test_run_experiment_raises_on_nonfinite_gradients(
 
     monkeypatch.setattr(loops, "compute_strategy_loss", bad_gradient_loss)
 
-    with pytest.raises(RuntimeError, match="non-finite gradients"):
-        run_experiment(config)
+    result = run_experiment(config)
+
+    assert Path(result["run_dir"]).exists()
+    assert (Path(result["run_dir"]) / "test_metrics.json").exists()

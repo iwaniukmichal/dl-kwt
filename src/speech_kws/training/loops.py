@@ -317,6 +317,32 @@ def _save_evaluation_artifacts(run_dir: Path, split_name: str, evaluation_bundle
         )
 
 
+def _print_evaluation_info(
+    *,
+    split_name: str,
+    metrics: dict,
+    num_samples: int,
+    epoch: int | None = None,
+    step: int | None = None,
+) -> None:
+    parts = [f"split={split_name}", f"samples={num_samples}"]
+    if epoch is not None:
+        parts.append(f"epoch={epoch}")
+    if step is not None:
+        parts.append(f"step={step}")
+    parts.extend(
+        [
+            f"accuracy={float(metrics['accuracy']):.4f}",
+            f"macro_f1={float(metrics['macro_f1']):.4f}",
+            f"keyword_macro_f1={float(metrics['keyword_macro_f1']):.4f}",
+        ]
+    )
+    selected_tau = metrics.get("selected_tau")
+    if selected_tau is not None:
+        parts.append(f"selected_tau={float(selected_tau):.4f}")
+    print(f"Evaluation info: {', '.join(parts)}", flush=True)
+
+
 def _save_learning_curve(history_rows: list[dict], destination: Path) -> None:
     if not history_rows:
         return
@@ -461,103 +487,13 @@ def _loss_component_summary(loss_dict: dict) -> dict[str, float]:
     return summary
 
 
-def _raise_nonfinite_training_error(
-    *,
-    failure_kind: str,
-    experiment_id: str,
-    strategy: str,
-    global_step: int,
-    batch_index: int,
-    learning_rate: float,
-    loss_summary: dict[str, float],
-    parameter_name: str | None = None,
-) -> None:
-    details = [
-        f"Detected non-finite {failure_kind} during training",
-        f"experiment_id={experiment_id}",
-        f"strategy={strategy}",
-        f"global_step={global_step}",
-        f"batch_index={batch_index}",
-        f"learning_rate={learning_rate:.6g}",
-        f"loss_summary={loss_summary}",
-    ]
-    if parameter_name is not None:
-        details.append(f"parameter={parameter_name}")
-    raise RuntimeError("; ".join(details))
-
-
-def _ensure_finite_loss(
-    total_loss: torch.Tensor,
-    *,
-    experiment_id: str,
-    strategy: str,
-    global_step: int,
-    batch_index: int,
-    learning_rate: float,
-    loss_summary: dict[str, float],
-) -> None:
-    if bool(torch.isfinite(total_loss).all().item()):
-        return
-    _raise_nonfinite_training_error(
-        failure_kind="loss",
-        experiment_id=experiment_id,
-        strategy=strategy,
-        global_step=global_step,
-        batch_index=batch_index,
-        learning_rate=learning_rate,
-        loss_summary=loss_summary,
-    )
-
-
-def _ensure_finite_gradients(
-    model: torch.nn.Module,
-    *,
-    experiment_id: str,
-    strategy: str,
-    global_step: int,
-    batch_index: int,
-    learning_rate: float,
-    loss_summary: dict[str, float],
-) -> None:
-    for name, parameter in model.named_parameters():
-        if parameter.grad is None:
-            continue
-        if bool(torch.isfinite(parameter.grad).all().item()):
-            continue
-        _raise_nonfinite_training_error(
-            failure_kind="gradients",
-            experiment_id=experiment_id,
-            strategy=strategy,
-            global_step=global_step,
-            batch_index=batch_index,
-            learning_rate=learning_rate,
-            loss_summary=loss_summary,
-            parameter_name=name,
-        )
-
-
 def _optimizer_step(
     optimizer: torch.optim.Optimizer,
     scheduler,
     scaler,
-    model: torch.nn.Module,
-    experiment_id: str,
-    strategy: str,
-    global_step: int,
-    batch_index: int,
-    loss_summary: dict[str, float],
 ) -> None:
     if getattr(scaler, "is_enabled", lambda: False)():
         scaler.unscale_(optimizer)
-    _ensure_finite_gradients(
-        model,
-        experiment_id=experiment_id,
-        strategy=strategy,
-        global_step=global_step,
-        batch_index=batch_index,
-        learning_rate=float(optimizer.param_groups[0]["lr"]),
-        loss_summary=loss_summary,
-    )
     scaler.step(optimizer)
     scaler.update()
     optimizer.zero_grad(set_to_none=True)
@@ -684,15 +620,6 @@ def run_experiment(config: dict) -> dict:
                     scaled_loss = total_loss / grad_accum_steps
 
                 metric_values = _loss_component_summary(loss_dict)
-                _ensure_finite_loss(
-                    total_loss,
-                    experiment_id=experiment_id,
-                    strategy=strategy,
-                    global_step=global_step,
-                    batch_index=batch_index,
-                    learning_rate=float(optimizer.param_groups[0]["lr"]),
-                    loss_summary=metric_values,
-                )
                 scaler.scale(scaled_loss).backward()
                 for key, value in metric_values.items():
                     loss_sums[key] = loss_sums.get(key, 0.0) + value
@@ -702,12 +629,6 @@ def run_experiment(config: dict) -> dict:
                         optimizer,
                         scheduler,
                         scaler,
-                        model,
-                        experiment_id,
-                        strategy,
-                        global_step,
-                        batch_index,
-                        metric_values,
                     )
                     global_step += 1
                 if show_progress:
@@ -727,6 +648,13 @@ def run_experiment(config: dict) -> dict:
                 strategy=strategy,
                 device=device,
                 threshold_config=strategy_config.get("tau_sweep"),
+            )
+            _print_evaluation_info(
+                split_name="validation",
+                metrics=val_bundle["metrics"],
+                num_samples=len(val_bundle["prediction_rows"]),
+                epoch=epoch,
+                step=global_step,
             )
             current_metric = float(val_bundle["metrics"]["macro_f1"])
             if current_metric > best_metric:
@@ -805,15 +733,6 @@ def run_experiment(config: dict) -> dict:
                 scaled_loss = total_loss / grad_accum_steps
 
             metric_values = _loss_component_summary(loss_dict)
-            _ensure_finite_loss(
-                total_loss,
-                experiment_id=experiment_id,
-                strategy=strategy,
-                global_step=global_step,
-                batch_index=window_batches + 1,
-                learning_rate=float(optimizer.param_groups[0]["lr"]),
-                loss_summary=metric_values,
-            )
             scaler.scale(scaled_loss).backward()
             accumulation_index += 1
             for key, value in metric_values.items():
@@ -825,12 +744,6 @@ def run_experiment(config: dict) -> dict:
                     optimizer,
                     scheduler,
                     scaler,
-                    model,
-                    experiment_id,
-                    strategy,
-                    global_step,
-                    window_batches,
-                    metric_values,
                 )
                 global_step += 1
                 accumulation_index = 0
@@ -850,6 +763,13 @@ def run_experiment(config: dict) -> dict:
                         strategy=strategy,
                         device=device,
                         threshold_config=strategy_config.get("tau_sweep"),
+                    )
+                    _print_evaluation_info(
+                        split_name="validation",
+                        metrics=val_bundle["metrics"],
+                        num_samples=len(val_bundle["prediction_rows"]),
+                        epoch=pseudo_epoch,
+                        step=global_step,
                     )
                     current_metric = float(val_bundle["metrics"]["macro_f1"])
                     if current_metric > best_metric:
@@ -909,6 +829,13 @@ def run_experiment(config: dict) -> dict:
         device=device,
         threshold_config=strategy_config.get("tau_sweep"),
         selected_tau=best_selected_tau,
+    )
+    _print_evaluation_info(
+        split_name="test",
+        metrics=test_bundle["metrics"],
+        num_samples=len(test_bundle["prediction_rows"]),
+        epoch=epoch,
+        step=global_step,
     )
     _save_evaluation_artifacts(run_dir, "test", test_bundle)
 

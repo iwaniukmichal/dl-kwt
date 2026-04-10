@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import csv
 import math
+import subprocess
+import sys
 import wave
 from pathlib import Path
 from types import SimpleNamespace
@@ -92,7 +94,44 @@ def test_build_stage2_manifest_generates_24_configs(tmp_path: Path, monkeypatch)
     assert len(manifest_entries) == 24
 
 
-def test_run_experiment_smoke_writes_artifacts(tmp_path: Path) -> None:
+def test_benchmark_model_script_writes_report(tmp_path: Path) -> None:
+    pytest.importorskip("torchaudio")
+    output_path = tmp_path / "bench.txt"
+
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/benchmark_model.py",
+            "--config",
+            "configs/experiments/stage1/kwt_strategy_b.yaml",
+            "--output",
+            str(output_path),
+            "--batch-size",
+            "2",
+            "--iters",
+            "1",
+            "--warmup-iters",
+            "0",
+            "--module-iters",
+            "1",
+            "--top-k",
+            "5",
+        ],
+        cwd=Path(__file__).resolve().parents[1],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    report = output_path.read_text(encoding="utf-8")
+    assert "Architecture" in report
+    assert "Total parameters" in report
+    assert "Forward benchmark" in report
+    assert "Module timing" in report
+    assert "Model: kwt" in report
+
+
+def test_run_experiment_smoke_writes_artifacts(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     pytest.importorskip("torchaudio")
     from speech_kws.training.loops import run_experiment
 
@@ -159,6 +198,7 @@ def test_run_experiment_smoke_writes_artifacts(tmp_path: Path) -> None:
 
     result = run_experiment(config)
     run_dir = Path(result["run_dir"])
+    captured = capsys.readouterr()
 
     assert (run_dir / "train_history.csv").exists()
     assert (run_dir / "resolved_config.yaml").exists()
@@ -168,3 +208,5 @@ def test_run_experiment_smoke_writes_artifacts(tmp_path: Path) -> None:
     assert (run_dir / "test_metrics.json").exists()
     assert (run_dir / "plots" / "learning_curve.png").exists()
     assert load_json(run_dir / "test_metrics.json")["accuracy"] >= 0.0
+    assert "Evaluation info: split=validation" in captured.out
+    assert "Evaluation info: split=test" in captured.out

@@ -8,8 +8,8 @@ frontend:
 
 model:
   name: bcresnet
-  variant: bcresnet-3
-  base_channels: 24
+  variant: bcresnet-1
+  base_channels: 8
   stage_blocks: [2, 2, 4, 4]
   stride_stages: [1, 2]
   spec_groups: 5

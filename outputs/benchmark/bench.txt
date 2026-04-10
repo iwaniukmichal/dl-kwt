@@ -1,0 +1,395 @@
+Model Benchmark Report
+Generated: 2026-04-10T11:55:17
+
+====================================================================================================
+Config: /Users/michaliwaniuk/Desktop/dl-2/configs/experiments/stage1/bcresnet_strategy_b.yaml
+Model: bcresnet
+Strategy: b
+Device: cpu
+Input shape: (16, 40, 98)
+Input dtype: torch.float32
+Benchmark settings: batch_size=16, iters=20, warmup_iters=5, module_iters=10, top_k=30
+
+Parameter counts
+Total parameters: 9,232
+Trainable parameters: 9,232
+Non-trainable parameters: 0
+
+Architecture
+SingleHeadModel(
+  (backbone): BCResNetBackbone(
+    (stem): Sequential(
+      (0): Conv2d(1, 16, kernel_size=(5, 5), stride=(2, 1), padding=(2, 2), bias=False)
+      (1): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (2): ReLU(inplace=True)
+    )
+    (stages): ModuleList(
+      (0): ModuleList(
+        (0): BCResBlock(
+          (f2): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(16, 8, kernel_size=(1, 1), stride=(1, 1), bias=False)
+                (1): BatchNorm2d(8, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): ReLU(inplace=True)
+              )
+            )
+            (1): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(8, 8, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0), groups=8, bias=False)
+                (1): SubSpectralNorm(
+                  (norm): BatchNorm2d(40, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                )
+              )
+            )
+          )
+          (avg_pool): AdaptiveAvgPool2d(output_size=(1, None))
+          (f1): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(8, 8, kernel_size=(1, 3), stride=(1, 1), padding=(0, 1), groups=8, bias=False)
+                (1): BatchNorm2d(8, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): SiLU(inplace=True)
+              )
+            )
+            (1): Conv2d(8, 8, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            (2): Dropout2d(p=0.1, inplace=False)
+          )
+        )
+        (1): BCResBlock(
+          (f2): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(8, 8, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0), groups=8, bias=False)
+                (1): SubSpectralNorm(
+                  (norm): BatchNorm2d(40, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                )
+              )
+            )
+          )
+          (avg_pool): AdaptiveAvgPool2d(output_size=(1, None))
+          (f1): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(8, 8, kernel_size=(1, 3), stride=(1, 1), padding=(0, 1), groups=8, bias=False)
+                (1): BatchNorm2d(8, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): SiLU(inplace=True)
+              )
+            )
+            (1): Conv2d(8, 8, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            (2): Dropout2d(p=0.1, inplace=False)
+          )
+        )
+      )
+      (1): ModuleList(
+        (0): BCResBlock(
+          (f2): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(8, 12, kernel_size=(1, 1), stride=(1, 1), bias=False)
+                (1): BatchNorm2d(12, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): ReLU(inplace=True)
+              )
+            )
+            (1): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(12, 12, kernel_size=(3, 1), stride=(2, 1), padding=(1, 0), groups=12, bias=False)
+                (1): SubSpectralNorm(
+                  (norm): BatchNorm2d(60, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                )
+              )
+            )
+          )
+          (avg_pool): AdaptiveAvgPool2d(output_size=(1, None))
+          (f1): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(12, 12, kernel_size=(1, 3), stride=(1, 1), padding=(0, 2), dilation=(1, 2), groups=12, bias=False)
+                (1): BatchNorm2d(12, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): SiLU(inplace=True)
+              )
+            )
+            (1): Conv2d(12, 12, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            (2): Dropout2d(p=0.1, inplace=False)
+          )
+        )
+        (1): BCResBlock(
+          (f2): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(12, 12, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0), groups=12, bias=False)
+                (1): SubSpectralNorm(
+                  (norm): BatchNorm2d(60, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                )
+              )
+            )
+          )
+          (avg_pool): AdaptiveAvgPool2d(output_size=(1, None))
+          (f1): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(12, 12, kernel_size=(1, 3), stride=(1, 1), padding=(0, 2), dilation=(1, 2), groups=12, bias=False)
+                (1): BatchNorm2d(12, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): SiLU(inplace=True)
+              )
+            )
+            (1): Conv2d(12, 12, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            (2): Dropout2d(p=0.1, inplace=False)
+          )
+        )
+      )
+      (2): ModuleList(
+        (0): BCResBlock(
+          (f2): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(12, 16, kernel_size=(1, 1), stride=(1, 1), bias=False)
+                (1): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): ReLU(inplace=True)
+              )
+            )
+            (1): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(16, 16, kernel_size=(3, 1), stride=(2, 1), padding=(1, 0), groups=16, bias=False)
+                (1): SubSpectralNorm(
+                  (norm): BatchNorm2d(80, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                )
+              )
+            )
+          )
+          (avg_pool): AdaptiveAvgPool2d(output_size=(1, None))
+          (f1): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(16, 16, kernel_size=(1, 3), stride=(1, 1), padding=(0, 4), dilation=(1, 4), groups=16, bias=False)
+                (1): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): SiLU(inplace=True)
+              )
+            )
+            (1): Conv2d(16, 16, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            (2): Dropout2d(p=0.1, inplace=False)
+          )
+        )
+        (1-3): 3 x BCResBlock(
+          (f2): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(16, 16, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0), groups=16, bias=False)
+                (1): SubSpectralNorm(
+                  (norm): BatchNorm2d(80, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                )
+              )
+            )
+          )
+          (avg_pool): AdaptiveAvgPool2d(output_size=(1, None))
+          (f1): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(16, 16, kernel_size=(1, 3), stride=(1, 1), padding=(0, 4), dilation=(1, 4), groups=16, bias=False)
+                (1): BatchNorm2d(16, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): SiLU(inplace=True)
+              )
+            )
+            (1): Conv2d(16, 16, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            (2): Dropout2d(p=0.1, inplace=False)
+          )
+        )
+      )
+      (3): ModuleList(
+        (0): BCResBlock(
+          (f2): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(16, 20, kernel_size=(1, 1), stride=(1, 1), bias=False)
+                (1): BatchNorm2d(20, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): ReLU(inplace=True)
+              )
+            )
+            (1): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(20, 20, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0), groups=20, bias=False)
+                (1): SubSpectralNorm(
+                  (norm): BatchNorm2d(100, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                )
+              )
+            )
+          )
+          (avg_pool): AdaptiveAvgPool2d(output_size=(1, None))
+          (f1): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(20, 20, kernel_size=(1, 3), stride=(1, 1), padding=(0, 8), dilation=(1, 8), groups=20, bias=False)
+                (1): BatchNorm2d(20, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): SiLU(inplace=True)
+              )
+            )
+            (1): Conv2d(20, 20, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            (2): Dropout2d(p=0.1, inplace=False)
+          )
+        )
+        (1-3): 3 x BCResBlock(
+          (f2): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(20, 20, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0), groups=20, bias=False)
+                (1): SubSpectralNorm(
+                  (norm): BatchNorm2d(100, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                )
+              )
+            )
+          )
+          (avg_pool): AdaptiveAvgPool2d(output_size=(1, None))
+          (f1): Sequential(
+            (0): ConvNormAct(
+              (block): Sequential(
+                (0): Conv2d(20, 20, kernel_size=(1, 3), stride=(1, 1), padding=(0, 8), dilation=(1, 8), groups=20, bias=False)
+                (1): BatchNorm2d(20, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (2): SiLU(inplace=True)
+              )
+            )
+            (1): Conv2d(20, 20, kernel_size=(1, 1), stride=(1, 1), bias=False)
+            (2): Dropout2d(p=0.1, inplace=False)
+          )
+        )
+      )
+    )
+    (embedding_head): Sequential(
+      (0): Conv2d(20, 20, kernel_size=(5, 5), stride=(1, 1), padding=(0, 2), groups=20, bias=False)
+      (1): Conv2d(20, 32, kernel_size=(1, 1), stride=(1, 1), bias=False)
+      (2): BatchNorm2d(32, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+      (3): ReLU(inplace=True)
+      (4): AdaptiveAvgPool2d(output_size=(1, 1))
+      (5): Flatten(start_dim=1, end_dim=-1)
+    )
+  )
+  (classifier): Linear(in_features=32, out_features=12, bias=True)
+)
+
+Forward benchmark
+Mean ms/forward: 102.8316
+Median ms/forward: 94.6868
+Min ms/forward: 86.0405
+Max ms/forward: 133.2405
+Std ms/forward: 15.6369
+Samples/sec: 155.59
+
+Module timing
+Note: timings are captured from leaf-module forward hooks and percentages are relative to captured leaf-module time.
+| Module | Class | Parameters | Calls/iter | Avg ms/iter | % captured |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `backbone.stages.3.3.f1.0.block.0` | Conv2d | 60 | 1.00 | 5.0633 | 5.05% |
+| `backbone.stages.3.1.f1.0.block.0` | Conv2d | 60 | 1.00 | 4.9692 | 4.95% |
+| `backbone.stages.3.0.f1.0.block.0` | Conv2d | 60 | 1.00 | 4.5459 | 4.53% |
+| `backbone.stages.3.2.f1.0.block.0` | Conv2d | 60 | 1.00 | 4.3854 | 4.37% |
+| `backbone.stages.2.1.f1.0.block.0` | Conv2d | 48 | 1.00 | 4.3854 | 4.37% |
+| `backbone.stages.2.0.f1.0.block.0` | Conv2d | 48 | 1.00 | 3.7641 | 3.75% |
+| `backbone.stages.2.3.f1.0.block.0` | Conv2d | 48 | 1.00 | 3.7235 | 3.71% |
+| `backbone.stages.2.2.f1.0.block.0` | Conv2d | 48 | 1.00 | 3.6587 | 3.65% |
+| `backbone.stages.1.0.f1.0.block.0` | Conv2d | 36 | 1.00 | 3.6498 | 3.64% |
+| `backbone.stem.0` | Conv2d | 400 | 1.00 | 3.6200 | 3.61% |
+| `backbone.stages.0.1.f2.0.block.0` | Conv2d | 24 | 1.00 | 3.5287 | 3.52% |
+| `backbone.embedding_head.0` | Conv2d | 500 | 1.00 | 3.3779 | 3.37% |
+| `backbone.stages.3.2.f2.0.block.0` | Conv2d | 60 | 1.00 | 3.2624 | 3.25% |
+| `backbone.stages.2.0.f1.1` | Conv2d | 256 | 1.00 | 3.2442 | 3.23% |
+| `backbone.stages.1.1.f1.0.block.0` | Conv2d | 36 | 1.00 | 3.1125 | 3.10% |
+| `backbone.stages.0.0.f2.1.block.0` | Conv2d | 24 | 1.00 | 3.0514 | 3.04% |
+| `backbone.stages.1.0.f2.1.block.0` | Conv2d | 36 | 1.00 | 2.4730 | 2.47% |
+| `backbone.stages.1.1.f2.0.block.0` | Conv2d | 36 | 1.00 | 2.3404 | 2.33% |
+| `backbone.stages.0.0.f2.0.block.0` | Conv2d | 128 | 1.00 | 2.0889 | 2.08% |
+| `backbone.stages.3.3.f2.0.block.0` | Conv2d | 60 | 1.00 | 2.0501 | 2.04% |
+| `backbone.stages.2.1.f2.0.block.0` | Conv2d | 48 | 1.00 | 1.9714 | 1.97% |
+| `backbone.stages.2.0.f2.1.block.0` | Conv2d | 48 | 1.00 | 1.9218 | 1.92% |
+| `backbone.stages.3.0.f2.1.block.0` | Conv2d | 60 | 1.00 | 1.9017 | 1.90% |
+| `backbone.stages.3.1.f2.0.block.0` | Conv2d | 60 | 1.00 | 1.8736 | 1.87% |
+| `backbone.stages.2.2.f2.0.block.0` | Conv2d | 48 | 1.00 | 1.6234 | 1.62% |
+| `backbone.stages.2.3.f2.0.block.0` | Conv2d | 48 | 1.00 | 1.5490 | 1.54% |
+| `backbone.stages.1.0.f2.0.block.0` | Conv2d | 96 | 1.00 | 1.3419 | 1.34% |
+| `backbone.stages.3.2.f1.1` | Conv2d | 400 | 1.00 | 1.2543 | 1.25% |
+| `backbone.embedding_head.1` | Conv2d | 640 | 1.00 | 1.1880 | 1.18% |
+| `backbone.stages.2.0.f2.0.block.0` | Conv2d | 192 | 1.00 | 1.1101 | 1.11% |
+
+====================================================================================================
+Config: /Users/michaliwaniuk/Desktop/dl-2/configs/experiments/stage1/kwt_strategy_b.yaml
+Model: kwt
+Strategy: b
+Device: cpu
+Input shape: (16, 40, 98)
+Input dtype: torch.float32
+Benchmark settings: batch_size=16, iters=20, warmup_iters=5, module_iters=10, top_k=30
+
+Parameter counts
+Total parameters: 607,308
+Trainable parameters: 607,308
+Non-trainable parameters: 0
+
+Architecture
+SingleHeadModel(
+  (backbone): KWTBackbone(
+    (time_branch): _TransformerBranch(
+      (patch_projection): Linear(in_features=40, out_features=64, bias=True)
+      (blocks): ModuleList(
+        (0-11): 12 x TransformerBlock(
+          (attention): MultiHeadSelfAttention(
+            (query): Linear(in_features=64, out_features=64, bias=False)
+            (key): Linear(in_features=64, out_features=64, bias=False)
+            (value): Linear(in_features=64, out_features=64, bias=False)
+            (combine): Linear(in_features=64, out_features=64, bias=True)
+          )
+          (mlp): Sequential(
+            (0): Linear(in_features=64, out_features=256, bias=True)
+            (1): GELU(approximate='none')
+            (2): Linear(in_features=256, out_features=64, bias=True)
+          )
+          (norm1): LayerNorm((64,), eps=1e-06, elementwise_affine=True)
+          (norm2): LayerNorm((64,), eps=1e-06, elementwise_affine=True)
+          (dropout1): Dropout(p=0.1, inplace=False)
+          (dropout2): Dropout(p=0.1, inplace=False)
+        )
+      )
+    )
+  )
+  (classifier): Linear(in_features=64, out_features=12, bias=True)
+)
+
+Forward benchmark
+Mean ms/forward: 21.5715
+Median ms/forward: 18.3155
+Min ms/forward: 16.4990
+Max ms/forward: 48.5957
+Std ms/forward: 9.0610
+Samples/sec: 741.72
+
+Module timing
+Note: timings are captured from leaf-module forward hooks and percentages are relative to captured leaf-module time.
+| Module | Class | Parameters | Calls/iter | Avg ms/iter | % captured |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `backbone.time_branch.blocks.5.mlp.1` | GELU | 0 | 1.00 | 0.3330 | 2.95% |
+| `backbone.time_branch.blocks.3.mlp.1` | GELU | 0 | 1.00 | 0.3243 | 2.88% |
+| `backbone.time_branch.blocks.4.mlp.1` | GELU | 0 | 1.00 | 0.3121 | 2.77% |
+| `backbone.time_branch.blocks.10.mlp.1` | GELU | 0 | 1.00 | 0.3097 | 2.75% |
+| `backbone.time_branch.blocks.0.mlp.1` | GELU | 0 | 1.00 | 0.3083 | 2.73% |
+| `backbone.time_branch.blocks.11.mlp.1` | GELU | 0 | 1.00 | 0.3070 | 2.72% |
+| `backbone.time_branch.blocks.9.mlp.1` | GELU | 0 | 1.00 | 0.3061 | 2.71% |
+| `backbone.time_branch.blocks.6.mlp.1` | GELU | 0 | 1.00 | 0.3048 | 2.70% |
+| `backbone.time_branch.blocks.2.mlp.1` | GELU | 0 | 1.00 | 0.3022 | 2.68% |
+| `backbone.time_branch.blocks.8.mlp.1` | GELU | 0 | 1.00 | 0.3006 | 2.66% |
+| `backbone.time_branch.blocks.7.mlp.1` | GELU | 0 | 1.00 | 0.2972 | 2.63% |
+| `backbone.time_branch.blocks.1.mlp.1` | GELU | 0 | 1.00 | 0.2895 | 2.57% |
+| `backbone.time_branch.blocks.2.mlp.2` | Linear | 16,448 | 1.00 | 0.2076 | 1.84% |
+| `backbone.time_branch.blocks.7.attention.combine` | Linear | 4,160 | 1.00 | 0.1862 | 1.65% |
+| `backbone.time_branch.blocks.5.mlp.0` | Linear | 16,640 | 1.00 | 0.1809 | 1.60% |
+| `backbone.time_branch.blocks.10.mlp.0` | Linear | 16,640 | 1.00 | 0.1753 | 1.55% |
+| `backbone.time_branch.blocks.7.mlp.0` | Linear | 16,640 | 1.00 | 0.1682 | 1.49% |
+| `backbone.time_branch.blocks.0.mlp.2` | Linear | 16,448 | 1.00 | 0.1669 | 1.48% |
+| `backbone.time_branch.blocks.9.mlp.0` | Linear | 16,640 | 1.00 | 0.1614 | 1.43% |
+| `backbone.time_branch.blocks.3.mlp.0` | Linear | 16,640 | 1.00 | 0.1602 | 1.42% |
+| `backbone.time_branch.blocks.6.mlp.0` | Linear | 16,640 | 1.00 | 0.1590 | 1.41% |
+| `backbone.time_branch.blocks.2.mlp.0` | Linear | 16,640 | 1.00 | 0.1537 | 1.36% |
+| `backbone.time_branch.blocks.0.mlp.0` | Linear | 16,640 | 1.00 | 0.1526 | 1.35% |
+| `backbone.time_branch.blocks.8.mlp.0` | Linear | 16,640 | 1.00 | 0.1519 | 1.35% |
+| `backbone.time_branch.blocks.11.mlp.0` | Linear | 16,640 | 1.00 | 0.1504 | 1.33% |
+| `backbone.time_branch.blocks.4.mlp.0` | Linear | 16,640 | 1.00 | 0.1494 | 1.32% |
+| `backbone.time_branch.blocks.5.attention.combine` | Linear | 4,160 | 1.00 | 0.1429 | 1.27% |
+| `backbone.time_branch.blocks.1.mlp.2` | Linear | 16,448 | 1.00 | 0.1426 | 1.26% |
+| `backbone.time_branch.blocks.1.mlp.0` | Linear | 16,640 | 1.00 | 0.1423 | 1.26% |
+| `backbone.time_branch.blocks.3.mlp.2` | Linear | 16,448 | 1.00 | 0.1418 | 1.26% |
