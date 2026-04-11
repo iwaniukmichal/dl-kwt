@@ -9,8 +9,8 @@ experiment:
   device: cuda
   amp: true
   deterministic: false
-  id: bcresnet_strategy_c
-  stage: stage1
+  id: kwt_strategy_a_aug_111_attn_both_depth_6_heads_1
+  stage: stage3
 task:
   clip_duration_sec: 1.0
   target_keywords:
@@ -24,7 +24,7 @@ task:
   - false
   - stop
   - go
-  unknown_strategy: c
+  unknown_strategy: a
 augment:
   time_shift:
     enabled: true
@@ -35,7 +35,7 @@ augment:
     gain_min: 0.0
     gain_max: 0.3
   specaugment:
-    enabled: false
+    enabled: true
     time_masks: 1
     time_mask_width: 10
     freq_masks: 1
@@ -57,32 +57,29 @@ frontend:
   hop_ms: 10.0
   expected_frames: 98
 model:
-  name: bcresnet
-  variant: bcresnet-1
-  base_channels: 8
-  stage_blocks:
-  - 2
-  - 2
-  - 4
-  - 4
-  stride_stages:
-  - 1
-  - 2
-  spec_groups: 5
+  name: kwt
+  variant: kwt-1
+  attention_type: both
+  d_model: 64
+  num_heads: 1
+  depth: 6
   dropout: 0.1
+  mlp_dim: 256
+  max_frames: 98
+  prenorm: false
 train:
   mode: epochs
   max_epochs: 100
   batch_size: 512
   grad_accumulation_steps: 1
   optimizer:
-    name: sgd
-    lr: 0.1
-    momentum: 0.9
-    weight_decay: 0.001
+    name: adamw
+    lr: 0.001
+    weight_decay: 0.1
+    beta1: 0.9
+    beta2: 0.999
   scheduler:
     name: cosine
     warmup_epochs: 5
     min_lr_ratio: 0.1
-strategy:
-  lambda_head2: 1.0
+strategy: {}

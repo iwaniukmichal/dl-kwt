@@ -96,6 +96,62 @@ def build_stage2_manifest(args) -> dict:
     return {"manifest": str(manifest_path), "configs": generated_configs}
 
 
+def build_stage3_manifest(args) -> dict:
+    output_root = Path(args.output_root).resolve()
+    resolved_config_path = (
+        output_root
+        / "runs"
+        / "stage2"
+        / "kwt_strategy_a_aug_111"
+        / "seed_1337"
+        / "resolved_config.yaml"
+    )
+    if not resolved_config_path.exists():
+        raise FileNotFoundError(
+            "Missing Stage 2 KWT winner config at "
+            f"{resolved_config_path}. Run Stage 2 for kwt_strategy_a_aug_111 first."
+        )
+
+    base_config = clean_config_for_dump(load_config(resolved_config_path))
+    if base_config["experiment"]["id"] != "kwt_strategy_a_aug_111":
+        raise ValueError("Stage 3 base config must have experiment.id=kwt_strategy_a_aug_111.")
+    if base_config["experiment"]["stage"] != "stage2":
+        raise ValueError("Stage 3 base config must come from stage2.")
+    if base_config["model"]["name"].lower() != "kwt":
+        raise ValueError("Stage 3 base config must use model.name=kwt.")
+    if base_config["task"]["unknown_strategy"].lower() != "a":
+        raise ValueError("Stage 3 base config must use task.unknown_strategy=a.")
+    if not all(
+        base_config["augment"][factor]["enabled"]
+        for factor in ["time_shift", "background_noise", "specaugment"]
+    ):
+        raise ValueError("Stage 3 base config must keep augmentation 111 enabled.")
+
+    stage3_dir = ensure_dir(REPO_ROOT / "configs" / "experiments" / "stage3")
+    manifest_entries = []
+    generated_configs = []
+
+    for attention_type in ["time", "freq", "both"]:
+        for num_heads in [1, 2]:
+            experiment_id = f"kwt_strategy_a_aug_111_attn_{attention_type}_depth_6_heads_{num_heads}"
+            config = clean_config_for_dump(base_config)
+            config["experiment"]["stage"] = "stage3"
+            config["experiment"]["id"] = experiment_id
+            config["model"]["attention_type"] = attention_type
+            config["model"]["depth"] = 6
+            config["model"]["num_heads"] = num_heads
+
+            destination = stage3_dir / f"{experiment_id}.yaml"
+            save_yaml(destination, config)
+            manifest_entries.append(destination.relative_to(REPO_ROOT).as_posix())
+            generated_configs.append(str(destination))
+
+    manifest_path = REPO_ROOT / "configs" / "manifests" / "stage3.txt"
+    ensure_dir(manifest_path.parent)
+    manifest_path.write_text("\n".join(sorted(manifest_entries)) + "\n", encoding="utf-8")
+    return {"manifest": str(manifest_path), "configs": generated_configs}
+
+
 def aggregate_command(args) -> dict:
     return aggregate_runs(args.output_root)
 
@@ -123,6 +179,10 @@ def build_parser() -> argparse.ArgumentParser:
     build_stage2_parser = subparsers.add_parser("build-stage2", help="Create Stage 2 configs from Stage 1 winners")
     build_stage2_parser.add_argument("--output-root", default=str(REPO_ROOT / "outputs"))
     build_stage2_parser.set_defaults(func=build_stage2_manifest)
+
+    build_stage3_parser = subparsers.add_parser("build-stage3", help="Create Stage 3 KWT configs from the best Stage 2 run")
+    build_stage3_parser.add_argument("--output-root", default=str(REPO_ROOT / "outputs"))
+    build_stage3_parser.set_defaults(func=build_stage3_manifest)
 
     aggregate_parser = subparsers.add_parser("aggregate", help="Aggregate completed run outputs")
     aggregate_parser.add_argument("--output-root", default=str(REPO_ROOT / "outputs"))

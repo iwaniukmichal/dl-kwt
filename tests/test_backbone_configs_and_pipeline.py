@@ -94,6 +94,87 @@ def test_build_stage2_manifest_generates_24_configs(tmp_path: Path, monkeypatch)
     assert len(manifest_entries) == 24
 
 
+def test_build_stage3_manifest_generates_6_configs(tmp_path: Path, monkeypatch) -> None:
+    from speech_kws.cli import build_stage3_manifest
+
+    repo_root = tmp_path / "repo"
+    outputs_root = repo_root / "outputs"
+    base_config_path = (
+        outputs_root
+        / "runs"
+        / "stage2"
+        / "kwt_strategy_a_aug_111"
+        / "seed_1337"
+        / "resolved_config.yaml"
+    )
+    save_yaml(
+        base_config_path,
+        {
+            "experiment": {"id": "kwt_strategy_a_aug_111", "stage": "stage2", "seed": 1337},
+            "task": {"unknown_strategy": "a"},
+            "model": {
+                "name": "kwt",
+                "variant": "kwt-1",
+                "attention_type": "time",
+                "depth": 12,
+                "num_heads": 1,
+                "d_model": 64,
+            },
+            "augment": {
+                "time_shift": {"enabled": True},
+                "background_noise": {"enabled": True},
+                "specaugment": {"enabled": True},
+            },
+            "train": {"batch_size": 512},
+            "outputs": {"on_exists": "skip"},
+        },
+    )
+
+    monkeypatch.setattr("speech_kws.cli.REPO_ROOT", repo_root)
+    result = build_stage3_manifest(SimpleNamespace(output_root=str(outputs_root)))
+
+    generated_configs = sorted((repo_root / "configs" / "experiments" / "stage3").glob("*.yaml"))
+    manifest_entries = (repo_root / "configs" / "manifests" / "stage3.txt").read_text(encoding="utf-8").splitlines()
+
+    assert Path(result["manifest"]) == repo_root / "configs" / "manifests" / "stage3.txt"
+    assert len(generated_configs) == 6
+    assert len(manifest_entries) == 6
+
+    expected_ids = {
+        "kwt_strategy_a_aug_111_attn_both_depth_6_heads_1",
+        "kwt_strategy_a_aug_111_attn_both_depth_6_heads_2",
+        "kwt_strategy_a_aug_111_attn_freq_depth_6_heads_1",
+        "kwt_strategy_a_aug_111_attn_freq_depth_6_heads_2",
+        "kwt_strategy_a_aug_111_attn_time_depth_6_heads_1",
+        "kwt_strategy_a_aug_111_attn_time_depth_6_heads_2",
+    }
+    assert {path.stem for path in generated_configs} == expected_ids
+
+    for config_path in generated_configs:
+        config = load_config(config_path)
+        assert config["experiment"]["stage"] == "stage3"
+        assert config["experiment"]["id"] == config_path.stem
+        assert config["task"]["unknown_strategy"] == "a"
+        assert config["model"]["name"] == "kwt"
+        assert config["model"]["depth"] == 6
+        assert config["model"]["num_heads"] in {1, 2}
+        assert config["model"]["attention_type"] in {"time", "freq", "both"}
+        assert config["augment"]["time_shift"]["enabled"] is True
+        assert config["augment"]["background_noise"]["enabled"] is True
+        assert config["augment"]["specaugment"]["enabled"] is True
+
+
+def test_build_stage3_manifest_requires_stage2_base_config(tmp_path: Path, monkeypatch) -> None:
+    from speech_kws.cli import build_stage3_manifest
+
+    repo_root = tmp_path / "repo"
+    outputs_root = repo_root / "outputs"
+
+    monkeypatch.setattr("speech_kws.cli.REPO_ROOT", repo_root)
+    with pytest.raises(FileNotFoundError, match="kwt_strategy_a_aug_111"):
+        build_stage3_manifest(SimpleNamespace(output_root=str(outputs_root)))
+
+
 def test_benchmark_model_script_writes_report(tmp_path: Path) -> None:
     pytest.importorskip("torchaudio")
     output_path = tmp_path / "bench.txt"

@@ -7,6 +7,7 @@ This repository contains a PyTorch research codebase for the Speech Commands v0.
 - four unknown-handling strategies: `A`, `B`, `C`, `D`
 - Stage 1 backbone/strategy comparison
 - Stage 2 augmentation grid for the winning strategy per backbone
+- Stage 3 KWT hyperparameter sweep for the best `kwt_strategy_a_aug_111` setup
 
 ## Data layout
 
@@ -106,10 +107,22 @@ Generate the Stage 2 manifest from Stage 1 results:
 python scripts/build_stage2_manifest.py
 ```
 
+Generate the Stage 3 KWT manifest from the best Stage 2 KWT run:
+
+```bash
+python scripts/build_stage3_manifest.py
+```
+
 Run the Stage 2 manifest:
 
 ```bash
 python scripts/run_manifest.py --manifest configs/manifests/stage2.txt
+```
+
+Run the Stage 3 manifest:
+
+```bash
+python scripts/run_manifest.py --manifest configs/manifests/stage3.txt
 ```
 
 Aggregate final results:
@@ -125,12 +138,11 @@ speech-kws prepare
 speech-kws run --config configs/experiments/stage1/bcresnet_strategy_b.yaml
 speech-kws run-manifest --manifest configs/manifests/stage1.txt
 speech-kws build-stage2
+speech-kws build-stage3
 speech-kws aggregate
 ```
 
 ## End-to-end experiments
-
-Follow this sequence to reproduce the full two-stage study required by the project plan.
 
 1. Create the environment and install dependencies.
 
@@ -186,7 +198,23 @@ Follow this sequence to reproduce the full two-stage study required by the proje
    python scripts/run_manifest.py --manifest configs/manifests/stage2.txt
    ```
 
-7. Aggregate final results again after Stage 2 completes.
+7. Generate the Stage 3 KWT hyperparameter study from the best `kwt_strategy_a_aug_111` Stage 2 run.
+
+   ```bash
+   python scripts/build_stage3_manifest.py
+   ```
+
+   Checkpoint:
+   - `configs/experiments/stage3/` contains 6 generated configs
+   - `configs/manifests/stage3.txt` contains the generated manifest entries
+
+8. Run the Stage 3 manifest.
+
+   ```bash
+   python scripts/run_manifest.py --manifest configs/manifests/stage3.txt
+   ```
+
+9. Aggregate final results again after Stage 3 completes.
 
    ```bash
    python scripts/aggregate_results.py
@@ -196,16 +224,18 @@ Follow this sequence to reproduce the full two-stage study required by the proje
    - `outputs/summaries/stage1/summary.csv`
    - `outputs/summaries/stage1/winners.csv`
    - `outputs/summaries/stage2/summary.csv`
+   - `outputs/summaries/stage3/summary.csv`
    - `outputs/summaries/all_runs.csv`
 
-8. Inspect per-run artifacts under `outputs/runs/`.
+10. Inspect per-run artifacts under `outputs/runs/`.
 
-   For every completed run, verify:
-   - `val_metrics.json` and `test_metrics.json`
-   - `per_class_metrics.csv`
-   - `plots/confusion_raw.png`
-   - `plots/confusion_row_normalized.png`
-   - `threshold_sweep.csv` for Strategy `D`
+For every completed run, verify:
+
+- `val_metrics.json` and `test_metrics.json`
+- `per_class_metrics.csv`
+- `plots/confusion_raw.png`
+- `plots/confusion_row_normalized.png`
+- `threshold_sweep.csv` for Strategy `D`
 
 ## Reruns and overwrite behavior
 
@@ -245,6 +275,7 @@ Aggregated summaries are stored under:
 ```text
 outputs/summaries/stage1/
 outputs/summaries/stage2/
+outputs/summaries/stage3/
 ```
 
 ## Reproducibility notes
@@ -252,7 +283,7 @@ outputs/summaries/stage2/
 - seeds are explicit in every runnable config
 - validation and test silence crops are deterministic and written to `data/prepared/`
 - resolved configs are snapshotted per run
-- Stage 1 and Stage 2 are driven by explicit manifest files
+- Stage 1, Stage 2, and Stage 3 are driven by explicit manifest files
 
 ## Status
 

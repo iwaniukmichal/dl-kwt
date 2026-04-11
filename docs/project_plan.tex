@@ -156,6 +156,8 @@ SpecAugment & --- & One time mask (max 10 frames) $+$ one frequency mask (max 5 
 \end{tabular}
 \end{table}
 
+As an additional follow-up experiment, the best-performing KWT Stage~2 setting will be reused and varying only the KWT hyperparameters \(\texttt{attention\_type} \in \{\texttt{time}, \texttt{freq}, \texttt{both}\}\), \(\texttt{depth} = 6\), and \(\texttt{num\_heads} \in \{1, 2\}\). The goal of this extra study is to test alternative KWT hyperparameter settings while reducing the total number of parameters by roughly \(2\times\) for the reduced-depth \texttt{time} and \texttt{freq} variants.
+
 Model selection will be based primarily on validation 12-class macro-F1. Final test-set results will report: 12-class accuracy; 12-class macro-F1; macro-F1 over the ten target commands only; per-class precision, recall, and F1; and raw and row-normalized confusion matrices for all 12 classes.
 
 
