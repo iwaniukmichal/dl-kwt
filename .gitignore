@@ -6,4 +6,6 @@ data/
 .vscode
 project_plan*
 !project_plan.tex
+!project_plan.pdf
+
 implementation-plan.md

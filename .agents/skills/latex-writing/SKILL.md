@@ -81,16 +81,16 @@ Use this as the default table pattern unless the document already uses a differe
 ```latex
 \begin{table}[t!]
 \centering
-\caption{Tytuł}
-\label{tab:etykieta}
+\caption{Title}
+\label{tab:label}
 \smallskip
 \small
 \begin{tabular}{@{}ll@{}}
 \toprule
-\textbf{Kolumna 1} & \textbf{Kolumna 2}\\
+\textbf{Col 1} & \textbf{Col 2}\\
 \midrule
-tekst & tekst \\
-tekst & tekst \\
+text & text \\
+text & text \\
 \bottomrule
 \end{tabular}
 \end{table}

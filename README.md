@@ -1,17 +1,10 @@
-# Speech Commands Unknown-Handling Experiments
+# Speech Commands Unknown-Handling
 
-This repository contains a PyTorch research codebase for the Speech Commands v0.01 keyword-spotting study described in [docs/project_plan.tex](/Users/michaliwaniuk/Desktop/dl-2/docs/project_plan.tex). It treats `data/` as the canonical local dataset root and supports:
-
-- 12-class evaluation: `yes, no, up, down, left, right, on, off, stop, go, unknown, silence`
-- three backbones: `BC-ResNet-3`, `KWT-1`, `MatchboxNet-3x1x64`
-- four unknown-handling strategies: `A`, `B`, `C`, `D`
-- Stage 1 backbone/strategy comparison
-- Stage 2 augmentation grid for the winning strategy per backbone
-- Stage 3 KWT hyperparameter sweep for the best `kwt_strategy_a_aug_111` setup
+This repository contains a PyTorch research codebase for the Speech Commands v0.01 keyword-spotting study described in [Project Plan](docs/project_plan.pdf).
 
 ## Data layout
 
-The raw Speech Commands v0.01 dataset is already included in this repository:
+The raw Speech Commands v0.01 dataset should be put into data folder:
 
 ```text
 data/
@@ -27,8 +20,6 @@ data/
   prepared/
 ```
 
-`data/audio/` is never rewritten. Generated manifests and cached metadata are stored under `data/prepared/`.
-
 ## Installation
 
 Create an environment with a torch-supported Python version (`3.9`-`3.12` recommended) and install the project:
@@ -38,10 +29,6 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
 ```
-
-For GPU training on an NVIDIA T4, install the CUDA-compatible PyTorch and torchaudio wheels appropriate for your environment before or during the editable install.
-
-Local validation in this repository showed `torch` aborting under Python `3.13`, so avoid `3.13` for reproducible runs and test execution.
 
 ## Repository structure
 
@@ -78,8 +65,6 @@ Each runnable experiment is defined by a YAML file. Common top-level sections:
 - `strategy`: method-specific parameters such as `lambda_head2` or `tau_sweep`
 - `evaluation`: metric settings and confusion-matrix export
 - `outputs`: overwrite/skip policy
-
-`base_configs` is supported for shallow inheritance. Stage 1 configs compose the common defaults with a backbone-specific file and then override the strategy-specific fields explicitly.
 
 ## CLI and scripts
 
@@ -143,6 +128,8 @@ speech-kws aggregate
 ```
 
 ## End-to-end experiments
+
+This end-to-end protocol allows results to be reproduced
 
 1. Create the environment and install dependencies.
 
@@ -284,7 +271,3 @@ outputs/summaries/stage3/
 - validation and test silence crops are deterministic and written to `data/prepared/`
 - resolved configs are snapshotted per run
 - Stage 1, Stage 2, and Stage 3 are driven by explicit manifest files
-
-## Status
-
-The codebase implements the end-to-end experiment system and its scaffolding. Training and tests require the dependencies listed in [pyproject.toml](/Users/michaliwaniuk/Desktop/dl-2/pyproject.toml); they are not bundled in the repository.
