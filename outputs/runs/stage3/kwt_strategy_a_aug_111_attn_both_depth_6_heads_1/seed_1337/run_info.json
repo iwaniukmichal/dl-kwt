@@ -1,0 +1,15 @@
+{
+  "amp_enabled": true,
+  "config_source": "/teamspace/studios/this_studio/dl-kwt/configs/experiments/stage3/kwt_strategy_a_aug_111_attn_both_depth_6_heads_1.yaml",
+  "dataloader": {
+    "available_cpu_workers": 4,
+    "num_workers": 4,
+    "persistent_workers": true,
+    "pin_memory": true,
+    "prefetch_factor": 2,
+    "requested_num_workers": "auto"
+  },
+  "device": "cuda",
+  "git_commit": "c1d32adc283eff8e825bf15a15a7ab8e24ab3c34",
+  "seed": 1337
+}
