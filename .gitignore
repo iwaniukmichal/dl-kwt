@@ -7,5 +7,8 @@ data/
 project_plan*
 !project_plan.tex
 !project_plan.pdf
+report*
+!report.tex
+!report.pdf
 
 implementation-plan.md
