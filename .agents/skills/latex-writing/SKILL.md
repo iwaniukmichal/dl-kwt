@@ -50,8 +50,9 @@ Use this skill to produce clean, compilable LaTeX that follows academic writing 
 - At the beginning of a sentence, write full forms such as `Section~\ref{...}`, `Subsection~\ref{...}`, `Figure~\ref{...}`, `Table~\ref{...}`.
 - In the middle of a sentence, use abbreviations such as `see. sec.~\ref{...}`, `fig.~\ref{...}`, `tab.~\ref{...}`.
 - Use `\dots` for ellipsis.
-- Use `--` for parenthetical dashes and numeric ranges.
-- Use a single hyphen for compound forms such as `fifty-five`.
+- Use `-` (hyphen) for compound words and prefixes, e.g. `fifty-five`, `well-known`, `nonlinear`.
+- Use `--` (en dash) for numeric ranges and relationships, e.g. `10--20`, `1990--2000`, `Einstein--Rosen bridge`.
+- Use `---` (em dash) for parenthetical dashes (sentence breaks).
 
 ## Structure and cross-references
 

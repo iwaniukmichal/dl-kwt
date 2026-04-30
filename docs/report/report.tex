@@ -32,11 +32,13 @@
 \begin{document}
 \maketitle
 
-\section{Abstract}
+\begin{abstract}
 \label{sec:abstract}
-This report summarizes the completed Speech Commands keyword-spotting study for the \(12\)-class task composed of \(10\) target commands, \texttt{unknown}, and \texttt{silence}. The executed pipeline exactly follows the planned three-stage structure: Stage~1 compares four unknown-handling strategies on three backbones, Stage~2 studies the \(2\times2\times2\) augmentation grid for the Stage~1 winners, and Stage~3 performs a reduced-depth follow-up on the best Stage~2 \emph{Keyword Transformer} configuration. All quantitative claims below are taken from files stored under \texttt{outputs/}, mainly \path{outputs/summaries/*.csv}, per-run \path{val_metrics.json}, \path{test_metrics.json}, \path{per_class_metrics.csv}, \path{threshold_sweep.csv}, and \path{train_history.csv}.
+This report studies unknown-word handling in small-footprint keyword spotting on the Speech Commands v0.01 dataset. The task is formulated as a \(12\)-class problem with \(10\) target commands, an aggregated \texttt{unknown} class, and a synthesized \texttt{silence} class. We compare four unknown-handling strategies across three neural backbones: BC-ResNet, Keyword Transformer (KWT), and MatchboxNet. The experimental protocol contains three stages: a backbone-strategy comparison, a \(2\times2\times2\) augmentation study for the Stage~1 winners, and a reduced-depth KWT follow-up.
 
-Stage~1 produced one clear qualitative result: for all three backbones, Strategy~A (train on the original \(30\) spoken words plus \texttt{silence}, then remap non-target predictions to \texttt{unknown}) achieved the best validation macro-F1. Stage~2 showed that augmentation mattered much more for KWT and MatchboxNet than for BC-ResNet. The strongest validation run in the entire study was \texttt{kwt\_strategy\_a\_aug\_111}, which reached validation macro-F1 \(=0.967\), test macro-F1 \(=0.964\), and test accuracy \(=0.978\). Stage~3 did not beat that run on validation, although \texttt{kwt\_strategy\_a\_aug\_111\_attn\_both\_depth\_6\_heads\_2} achieved the best test macro-F1 of the study at \(0.966\). The dominant empirical pattern is therefore that richer \(31\)-way supervision with post-hoc remapping worked better than direct unknown collapsing or rejection, while SpecAugment was the main source of improvement for the transformer-based model.
+The results show that Strategy~A, which trains on the original \(30\) spoken-word labels plus \texttt{silence} and remaps non-target predictions to \texttt{unknown} at inference time, achieves the best validation macro-F1 for all three backbones. Augmentation effects are architecture-dependent: BC-ResNet is already near saturation, MatchboxNet benefits mainly from time shift and SpecAugment, and KWT benefits most from enabling all three augmentation factors. The best validation model achieved validation macro-F1 \(=0.967\), test macro-F1 \(=0.964\), and test accuracy \(=0.978\). The reduced-depth KWT follow-up shows that time-only and time-frequency attention variants remain competitive, but frequency-only attention is insufficient.
+\end{abstract}
+
 
 \section{Description of the research problem}
 \label{sec:problem}
@@ -100,7 +102,7 @@ SpecAugment is applied after the frontend has converted waveforms into normalize
 \label{sec:experiments}
 The executed study follows the three-stage protocol defined in the project plan. It contains \(42\) completed training runs: \(12\) in Stage~1, \(24\) in Stage~2, and \(6\) in Stage~3. Model selection was based on validation \(12\)-class macro-F1.
 
-All runs used the official train/validation/test split files. BC-ResNet and KWT used the shared \(40\)-bin log-Mel frontend, while MatchboxNet used its native \(64\)-dimensional MFCC frontend. The backbone-specific training settings are summarized in table~\ref{tab:backbone-settings}.
+All runs used the official train/validation/test split files. BC-ResNet and KWT used the shared \(40\)-bin log-Mel frontend, while MatchboxNet used its native \(64\)-dimensional MFCC frontend. The backbone-specific training settings are summarized in Table~\ref{tab:backbone-settings}.
 
 
 
@@ -193,7 +195,7 @@ Stage~2 kept only the best Stage~1 unknown-handling strategy for each backbone a
 
 
 \subsection*{Stage 3: reduced-depth KWT follow-up}
-Stage~3 reused the best KWT configuration selected from Stage~2 and varied only the transformer attention setup. The follow-up kept \(\texttt{depth}=6\), tested \(\texttt{attention\_type}\in\{\texttt{time}, \texttt{freq}, \texttt{both}\}\), and used \(\texttt{num\_heads}\in\{1,2\}\). Because the default KWT depth is \(12\) \cite{kwt}, the time-only and frequency-only depth-\(6\) variants reduce the parameter count by roughly \(2\times\). This stage therefore asks whether a shallower KWT variant can retain or improve the best Stage~2 performance while substantially reducing model size.
+Stage~3 reused the best KWT configuration selected from Stage~2 and varied only the transformer attention setup. The follow-up kept \(\texttt{depth}=6\), tested \(\texttt{attention\_type}\in\{\texttt{time}, \texttt{freq}, \texttt{both}\}\), and used \(\texttt{num\_heads}\in\{1,2\}\). In the implementation, \texttt{time} attention treats time frames as tokens and frequency bins as per-token features, while \texttt{freq} attention uses the transposed view: frequency bins become tokens and time frames become features. The \texttt{both} setting runs both transformer branches separately, concatenates their output embeddings, and passes the concatenated representation to the classifier. Because the default KWT depth is \(12\) \cite{kwt}, the time-only and frequency-only depth-\(6\) variants reduce the parameter count by roughly \(2\times\). This stage therefore asks whether a shallower KWT variant can retain or improve the best Stage~2 performance while reducing model size.
 
 
 \section{Results}
