@@ -10,7 +10,6 @@ project_plan*
 docs/report/report.*
 !report.tex
 !report.pdf
-
 *.ckpt
 
 implementation-plan.md
