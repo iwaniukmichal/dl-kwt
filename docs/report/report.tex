@@ -305,7 +305,7 @@ Stage~3 tested whether the best Stage~2 KWT setup could be matched by a shallowe
 
 The competitive Stage~3 candidates were the time-only and dual-branch models. The best validation Stage~3 run was \texttt{attn\_time\_depth\_6\_heads\_2} with validation macro-F1 \(=0.964\), but that still remained below the Stage~2 champion's \(0.967\). The best test Stage~3 run was \texttt{attn\_both\_depth\_6\_heads\_2}, which reached test accuracy \(=97.79\%\) and test macro-F1 \(=0.966\), slightly above the Stage~2 KWT winner in macro-F1 but not in validation evidence. Table~\ref{tab:kwt-paper-comparison} compares the three paper KWT variants, to the seven repository KWT models executed in this project. 
 
-\begin{table}[b!]
+\begin{table}[t!]
 \centering
 \caption{Stage 3 KWT follow-up results with fixed depth \(=6\)}
 \label{tab:stage3-results}
@@ -328,7 +328,8 @@ time & 2 & \textbf{96.44} & 97.69 & 96.33 \\
 
 The executed KWT runs outperformed the paper KWT accuracies despite using a much shorter training schedule: \(10{,}400\) steps instead of \(23{,}000\) steps with the same batch size \(512\). The strongest efficiency result is given by the reduced depth-\(6\) time-only variants. They contain \(309{,}791\) parameters, which is roughly \(2\times\) fewer than the paper KWT-1 model and much fewer than KWT-2 or KWT-3, yet they still reach \(97.66\)--\(97.69\%\) test accuracy. The Stage~2 depth-\(12\) KWT winner and the Stage~3 dual-branch variants are closer to the paper KWT-1 parameter count, but they also exceed the reported paper accuracies while using less than half as many training steps. The comparison should still be read cautiously because the paper values are multi-run literature summaries whereas the present report is based on single-seed runs.
 
-\begin{table}[H]
+
+\begin{table}[t!]
 \centering
 \caption{Comparison between the paper KWT family and the seven executed repository KWT models. Repository models used \(10{,}400\) steps with batch size \(512\), whereas the paper models used \(23{,}000\) steps with the same batch size}
 \label{tab:kwt-paper-comparison}
@@ -359,6 +360,7 @@ The executed KWT runs outperformed the paper KWT accuracies despite using a much
 \end{table}
 
 
+
 Figure~\ref{fig:kwt-confusion} gives a closer view of the strongest validation model, \path{kwt_strategy_a_aug_111}. The raw confusion matrix confirms that most residual errors involve only a few labels. On the test set, the largest off-diagonal counts are \texttt{unknown}\(\rightarrow\)\texttt{silence}, \texttt{no}\(\rightarrow\)\texttt{unknown}, \texttt{right}\(\rightarrow\)\texttt{unknown}, and \texttt{go}\(\rightarrow\)\texttt{no}. The normalized confusion matrix leads to the same conclusion: the model is already excellent on \texttt{unknown}, but short and acoustically similar commands remain the limiting cases. Consistent with that picture, the weakest class-wise test F1 values of this run were \texttt{no} \(=0.939\), \texttt{go} \(=0.942\), and \texttt{silence} \(=0.943\).
 
 Figures~\ref{fig:bcresnet-confusion} and~\ref{fig:matchboxnet-confusion} show the corresponding confusion matrices for the best Stage~2 configurations of the two convolutional backbones. 
@@ -377,7 +379,7 @@ For MatchboxNet, \texttt{matchboxnet\_strategy\_a\_aug\_101} it's row-normalized
 \label{fig:kwt-confusion}
 \end{figure}
 
-\begin{figure}[b!]
+\begin{figure}[t!]
 \centering
 \reportgraphic[width=0.48\textwidth]{runs/stage2/bcresnet_strategy_a_aug_001/seed_1338/plots/confusion_raw.png}\hfill
 \reportgraphic[width=0.48\textwidth]{runs/stage2/bcresnet_strategy_a_aug_001/seed_1338/plots/confusion_row_normalized.png}
@@ -385,7 +387,7 @@ For MatchboxNet, \texttt{matchboxnet\_strategy\_a\_aug\_101} it's row-normalized
 \label{fig:bcresnet-confusion}
 \end{figure}
 
-\begin{figure}[b!]
+\begin{figure}[t!]
 \centering
 \reportgraphic[width=0.48\textwidth]{runs/stage2/matchboxnet_strategy_a_aug_101/seed_1338/plots/confusion_raw.png}\hfill
 \reportgraphic[width=0.48\textwidth]{runs/stage2/matchboxnet_strategy_a_aug_101/seed_1338/plots/confusion_row_normalized.png}
