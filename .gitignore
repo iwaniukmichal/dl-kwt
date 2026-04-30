@@ -7,8 +7,10 @@ data/
 project_plan*
 !project_plan.tex
 !project_plan.pdf
-report*
+docs/report/report.*
 !report.tex
 !report.pdf
+
+*.ckpt
 
 implementation-plan.md

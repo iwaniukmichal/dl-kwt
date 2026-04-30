@@ -116,15 +116,6 @@ Use `tabularx` only when fixed-width wrapping is actually needed.
 - Avoid package sprawl.
 - Prefer standard, well-supported packages over obscure alternatives unless the project already depends on them.
 
-## Response pattern
-
-When returning work to the user:
-
-1. Give the LaTeX output first.
-2. Keep commentary short.
-3. If anything could not be completed safely or factually, list it under `Open issues:`.
-4. If citations are still missing, say exactly where they are missing.
-
 ## Validation checklist
 
 Before finalizing, verify all of the following:

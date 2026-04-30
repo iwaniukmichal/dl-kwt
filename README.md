@@ -27,7 +27,7 @@ Create an environment with a torch-supported Python version (`3.9`-`3.12` recomm
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .[dev]
+pip install -e ".[dev]"
 ```
 
 ## Repository structure

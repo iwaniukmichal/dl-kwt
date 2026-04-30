@@ -10,7 +10,6 @@ The repository is already implemented and the experiments were already run by th
 Read plan.tex to understand the project structure, phases, and research questions.
 Read README.md to identify the experiment workflow.
 Inspect outputs/ and use only the files found there as evidence.
-Derive cross-seed averages, cross-architecture comparisons, phase-over-phase deltas, augmentation rankings, and answers to the plan's research questions.
 Write the final report into docs/report/report.tex.
 Use the report template sections from docs/report/report.tex and follow latex-writing-skill for LaTeX formatting.
 ```

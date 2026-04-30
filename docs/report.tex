@@ -1,5 +1,0 @@
-Strategy	Sampling rule	Examples seen per epoch	Replacement
-A	plain shuffled DataLoader over the full train set	52,942	no
-B	WeightedRandomSampler with num_samples = keyword + silence + avg_keyword	22,246	yes
-C	balanced superclass batch sampler	97,792	cyclic reuse within class buffers
-D	same weighted sampler as B, but for known/silence/unknown balancing	22,246	yes
