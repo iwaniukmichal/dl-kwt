@@ -334,21 +334,21 @@ Table~\ref{tab:stage1-results} shows that Strategy~A won Stage~1 for all three b
 \textbf{Backbone} & \textbf{Strategy} & \textbf{Validation macro-F1} & \textbf{Test macro-F1} & \textbf{Test accuracy} & \textbf{Selected \(\tau\)}\\
 \midrule
 \multirow{4}{*}{BC-ResNet}
- & A & \textbf{95.00} & 95.64 & 97.24 & -- \\
- & B & 91.04 & 91.80 & 93.98 & -- \\
- & C & 94.75 & 94.39 & 96.32 & -- \\
+ & A & \textbf{95.00} & 95.64 & 97.24 & - \\
+ & B & 91.04 & 91.80 & 93.98 & - \\
+ & C & 94.75 & 94.39 & 96.32 & - \\
  & D & 93.49 & 93.41 & 95.33 & 0.44 \\
 \midrule
 \multirow{4}{*}{KWT}
- & A & \textbf{95.63} & 94.59 & 96.47 & -- \\
- & B & 92.55 & 91.95 & 95.09 & -- \\
- & C & 94.78 & 93.46 & 96.16 & -- \\
+ & A & \textbf{95.63} & 94.59 & 96.47 & - \\
+ & B & 92.55 & 91.95 & 95.09 & - \\
+ & C & 94.78 & 93.46 & 96.16 & - \\
  & D & 94.25 & 93.21 & 95.22 & 0.48 \\
 \midrule
 \multirow{4}{*}{MatchboxNet}
- & A & \textbf{95.17} & 94.66 & 96.62 & -- \\
- & B & 92.12 & 90.99 & 94.04 & -- \\
- & C & 94.13 & 92.99 & 95.88 & -- \\
+ & A & \textbf{95.17} & 94.66 & 96.62 & - \\
+ & B & 92.12 & 90.99 & 94.04 & - \\
+ & C & 94.13 & 92.99 & 95.88 & - \\
  & D & 94.22 & 93.87 & 95.60 & 0.64 \\
 \bottomrule
 \end{tabular}
@@ -446,7 +446,7 @@ time & 2 & \textbf{96.44} & 97.69 & 96.33 \\
 \end{table}
 
 
-The executed KWT runs outperformed the paper KWT accuracies despite using a much shorter training schedule: \(10{,}400\) steps instead of \(23{,}000\) steps with the same batch size \(512\). The strongest efficiency result is given by the reduced depth-\(6\) time-only variants. They contain \(309{,}791\) parameters, which is roughly \(2\times\) fewer than the paper KWT-1 model and much fewer than KWT-2 or KWT-3, yet they still reach \(97.66\)--\(97.69\%\) test accuracy. The Stage~2 depth-\(12\) KWT winner and the Stage~3 dual-branch variants are closer to the paper KWT-1 parameter count, but they also exceed the reported paper accuracies while using less than half as many training steps. The comparison should still be read cautiously because the paper values are multi-run literature summaries whereas the present report is based on single-seed runs.
+The executed KWT runs outperformed the paper KWT accuracies despite using a much shorter training schedule: \(10{,}400\) steps instead of \(23{,}000\) steps with the same batch size \(512\). The strongest efficiency result is given by the reduced depth-\(6\) time-only variants. They contain \(309{,}791\) parameters, which is roughly \(2\times\) fewer than the paper KWT-1 model and much fewer than KWT-2 or KWT-3, yet they still reach \(97.66\)-\(97.69\%\) test accuracy. The Stage~2 depth-\(12\) KWT winner and the Stage~3 dual-branch variants are closer to the paper KWT-1 parameter count, but they also exceed the reported paper accuracies while using less than half as many training steps. The comparison should still be read cautiously because the paper values are multi-run literature summaries whereas the present report is based on single-seed runs.
 
 
 \begin{table}[t!]
