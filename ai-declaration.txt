@@ -1,0 +1,3 @@
+In the preparation of this work, we used generative artificial intelligence (GenAI) tools to support some technical and editorial tasks. In particular, these tools were used to help generate repetitive code, assist with configuration files, calculate metrics, create charts and visualizations, and improve the language and style of the report.
+
+All important decisions, including the methodology, implementation, analysis, and final form of the report and code, were made by the authors. We take full responsibility for the entire content of the report and the submitted code.
