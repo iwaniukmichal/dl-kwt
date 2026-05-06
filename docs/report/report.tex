@@ -13,7 +13,7 @@
 \usepackage{xcolor}
 \usepackage{amsmath}
 \usepackage{float}
-\usepackage{float}
+\usepackage{amssymb}
 \usepackage{graphicx}
 \hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
 
@@ -72,29 +72,123 @@ Test & \(7{,}092\) & \(2{,}567\) & \(4{,}268\) & \(257\) \\
 
 \section{Theoretical introduction and literature review}
 \label{sec:theory}
-Keyword spotting systems are typically deployed under tight compute and memory limits, which makes the architecture choice a balance between representational power and efficiency. We selected three complementary families: \emph{BC-ResNet-1}, \emph{Keyword Transformer} (KWT-1), and \emph{MatchboxNet-3x1x64}. BC-ResNet uses broadcasted residual learning to improve feature reuse in a very compact convolutional network and has become a strong small-footprint CNN baseline for speech commands \cite{bcresnet}. KWT replaces most convolutional inductive bias with self-attention over spectrogram patches, which gives it more global temporal context at the cost of a much larger parameter budget \cite{kwt}. MatchboxNet keeps a convolutional design, but uses efficient time-channel separable blocks tailored to speech recognition \cite{matchbox}.
 
-These backbones are compared under closely related frontends. BC-ResNet and KWT used a shared \(40\)-bin log-Mel frontend with a \(30\)\,ms analysis window and \(10\)\,ms hop, which produces roughly \(98\) frames per clip. MatchboxNet retained its native \(64\)-dimensional MFCC frontend with a \(25\)\,ms window, \(10\)\,ms overlap, and \(128\) padded frames. This design isolates the architectural comparison reasonably well, while still respecting the original MatchboxNet setup from the literature \cite{matchbox}.
+\subsection{Keyword spotting as an open-set recognition problem}
+Keyword spotting (KWS) systems are designed to detect a small set of predefined spoken commands from a continuous audio stream, while rejecting all other speech, non-speech sounds, and silence. 
+Formally, let $\mathcal{K} = \{c_1, c_2, \dots, c_K\}$ denote the set of $K$ target keywords. 
+At inference time, the model must decide whether an input audio segment belongs to one of the target classes or should be mapped to a \emph{reject} class, typically termed \texttt{unknown}. 
+This is an instance of \emph{open-set recognition} \cite{openmax}, where the space of possible inputs is unbounded, and the training set covers only a finite subset of known classes. 
+A successful KWS model must therefore learn a representation that provides well-separated decision regions for the target commands while leaving a large, clearly defined region for anomalies.
+
+\subsection{Neural architectures for KWS}
+Below we review the key architectural characteristics of the three model families used in this study.
+
+\subsubsection{Self-attention and the Keyword Transformer}
+The Transformer architecture \cite{vaswani} avoids recurrence and convolution, using instead multi-head self-attention to capture global dependencies. 
+Given an input sequence $\mathbf{X} \in \mathbb{R}^{L \times d_{\text{model}}}$, the self-attention operation for a single head is defined in Equation~\eqref{eq:self-attention}:
+\begin{equation}
+    \label{eq:self-attention}
+    \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{softmax}\!\left(\frac{\mathbf{Q} \mathbf{K}^{\mathsf{T}}}{\sqrt{d_k}}\right) \mathbf{V},
+\end{equation}
+with queries $\mathbf{Q} = \mathbf{X} \mathbf{W}^Q$, keys $\mathbf{K} = \mathbf{X} \mathbf{W}^K$, and values $\mathbf{V} = \mathbf{X} \mathbf{W}^V$. 
+Multiple heads run in parallel, and their outputs are concatenated and projected. 
+Positional information is injected via learned or fixed positional encodings.
+
+The Keyword Transformer (KWT) \cite{kwt} adapts this paradigm to KWS by applying self-attention directly along the time axis of the input spectrogram.
+Let $\mathbf{S} \in \mathbb{R}^{T \times F}$ be the spectrogram with $T$ time frames and $F$ frequency bins.
+A single linear projection $\mathbf{W}_0 \in \mathbb{R}^{F \times d}$ maps each time frame to a $d$-dimensional token, so the input is treated as a sequence of length $T$ in which each token is one time window with all frequency bins as its features.
+A learnable classification token is prepended and a learned positional embedding is added, after which the resulting sequence of length $T+1$ is processed by a stack of multi-head self-attention encoder blocks; the final state of the classification token is fed to a linear classifier.
+Because attention spans the full temporal extent at every layer, KWT can model long-range phonetic patterns natively, which is advantageous when the keyword position is not centrally aligned in the input window.
+The cost is a quadratic complexity $\mathcal{O}(L^2)$ in the sequence length, although for short KWS sequences this remains manageable.
+The KWT authors note that, empirically, attention is more effective in the time domain than in the frequency domain---a finding that motivates the time/frequency/both ablation in our Stage~3.
 
 
-\subsection{Augmentation}
+\subsubsection{Depthwise-separable convolutions and broadcasted residuals}
+Standard 2D convolutions mix spatial and channel correlations with a kernel of size $F \times T \times C_{\text{in}} \times C_{\text{out}}$, which leads to a high computational cost. 
+Depthwise-separable convolutions \cite{dsconv} factor this operation into a spatial depthwise convolution applied separately to each input channel, followed by a pointwise $1 \times 1$ convolution that mixes channels, as in Equation~\eqref{eq:dsconv}:
+\begin{equation}
+    \label{eq:dsconv}
+    \text{DSConv}(\mathbf{X}) = \text{Pointwise}\bigl(\text{Depthwise}(\mathbf{X}; \mathbf{W}_d);\, \mathbf{W}_p\bigr),
+\end{equation}
+where $\mathbf{W}_d \in \mathbb{R}^{F \times T \times C_{\text{in}}}$ and $\mathbf{W}_p \in \mathbb{R}^{1 \times 1 \times C_{\text{in}} \times C_{\text{out}}}$. 
+The compute cost relative to a standard convolution is approximately $\tfrac{1}{C_{\text{out}}} + \tfrac{1}{F\cdot T}$, which in typical KWS settings yields close to an order-of-magnitude reduction in both parameters and FLOPs because spatial mixing and channel mixing are decoupled.
 
-Data augmentation is central in small-footprint KWS because the raw clips are short, cleanly segmented, and otherwise easy to overfit. We used three optional augmentation factors:
+Residual connections \cite{resnet} ease optimization by letting layers learn the residual form in Equation~\eqref{eq:residual}:
+\begin{equation}
+    \label{eq:residual}
+    \mathbf{Y} = \mathcal{F}(\mathbf{X}) + \mathbf{X}.
+\end{equation}
+Combining depthwise-separable convolutions with skip connections results in the TC-ResNet family \cite{tcresnet}.
+BC-ResNet \cite{bcresnet} extends this idea through \emph{broadcasted residual learning}, which combines cheap 1D temporal computations with a small amount of 2D frequency-aware processing.
+The residual function is decomposed into a 2D part $\mathcal{F}_2$ (frequency-depthwise convolution with sub-spectral normalisation) and a 1D temporal part $\mathcal{F}_1$ (depthwise temporal convolution followed by pointwise channel mixing).
+The 2D output is averaged over the frequency axis to obtain a temporal feature, $\mathcal{F}_1$ operates on this temporal feature, and the result is then broadcast back along the frequency axis before being added to the identity shortcut.
+Writing $\mathrm{avgpool}_F$ for averaging over frequency and $\mathrm{BC}$ for the broadcast back to the original frequency-time shape, the BC-ResBlock takes the form shown in Equation~\eqref{eq:bc-resblock}:
+\begin{equation}
+    \label{eq:bc-resblock}
+    \mathbf{Y} = \mathbf{X} + \mathcal{F}_2(\mathbf{X}) + \mathrm{BC}\bigl(\mathcal{F}_1(\mathrm{avgpool}_F(\mathcal{F}_2(\mathbf{X})))\bigr).
+\end{equation}
+The heavy pointwise operations inside $\mathcal{F}_1$ run on a tensor whose frequency dimension has been collapsed to one, reducing their cost by a factor proportional to the number of frequency bins while preserving the inductive bias of 2D processing.
 
-\paragraph*{Time shift}
-Each non-\texttt{silence} waveform is shifted by a random integer offset sampled uniformly from the interval \([-100,100]\)\,ms. At \(16\)\,kHz this corresponds to \([-1600,1600]\) samples. Samples shifted outside the \(1\)-second window are discarded, and the newly uncovered region is filled with zeros. This augmentation therefore changes the temporal position of the keyword inside the fixed input window.
-
-\paragraph*{Background-noise mixing}
-Background mixing is attempted for each non-\texttt{silence} training example with probability \(p=0.8\). The noise waveform is sampled from the prepared training \texttt{silence} pool. A gain value \(\alpha\) is sampled uniformly from \([0,0.3]\), and the augmented waveform is computed as
-\[
-x_{\text{aug}} = \operatorname{clip}(x + \alpha n, -1, 1),
-\]
-where \(x\) is the original waveform and \(n\) is the sampled background-noise crop. The clipping step keeps the mixed waveform within the valid amplitude range.
-
-\paragraph*{SpecAugment}
-SpecAugment is applied after the frontend has converted waveforms into normalized feature tensors with shape \([\text{batch}, \text{frequency}, \text{time}]\). When enabled, each sample receives one time mask and one frequency mask. The time-mask width is sampled uniformly from \(0\) to \(10\) frames, and the frequency-mask width is sampled uniformly from \(0\) to \(5\) bins. A zero-width mask is skipped; otherwise, a random valid start position is selected and the corresponding time frames or frequency bins are set to \(0\).
 
 
+\subsubsection{Time-channel separable 1D convolutions}
+Inspired by efficient ASR architectures, MatchboxNet \cite{matchbox} employs purely 1D convolutions along the time axis using time-channel separable (TCS) blocks.
+A TCS sub-block first applies a depthwise 1D convolution along the time dimension, which processes each channel independently, and then a pointwise $1\times1$ convolution that mixes channels, followed by batch normalisation, ReLU, and dropout, as formalized in Equation~\eqref{eq:tcs-block}:
+\begin{equation}
+    \label{eq:tcs-block}
+    \text{TCS}(\mathbf{X}) = \text{Dropout}\!\Bigl(\text{ReLU}\!\bigl(\text{BN}\!\bigl(\text{Pointwise}\bigl(\text{Conv}_{1D}(\mathbf{X};\,\mathbf{W}_{\text{time}});\, \mathbf{W}_p\bigr)\bigr)\bigr)\Bigr),
+\end{equation}
+where $\text{Conv}_{1D}$ is a depthwise 1D convolution along time with kernel size $K$ and $\mathbf{W}_p$ is the pointwise mixing matrix.
+A MatchboxNet block stacks several TCS sub-blocks with a residual connection.
+This design separates temporal mixing (cheap depthwise 1D convolutions) from channel mixing (cheap pointwise convolutions), dramatically reducing parameters while maintaining high discriminative power.
+
+\subsection{Strategies for representing the unknown class}
+The experiments compare four ways of representing the \texttt{unknown} class. Strategy~A trains on all original word labels and remaps non-target predictions to \texttt{unknown} at inference time. Strategy~B collapses all non-target words into one \texttt{unknown} label before training. Strategy~C uses a hierarchical coarse/fine classifier, while Strategy~D combines known-class training with confidence-based rejection and outlier exposure \cite{oe}. The exact training targets, inference rules, and sampling regimes are described with the conducted experiments in Section~\ref{sec:experiments}.
+
+\subsection{Data augmentation for robust keyword spotting}
+Short, cleanly segmented speech samples make KWS models susceptible to overfitting. 
+Data augmentation introduces controlled variations that reflect real-world acoustic conditions, which improves generalization.
+In our experiments, whenever a given augmentation factor was enabled, the following parameter settings were used consistently across the corresponding runs.
+
+\paragraph{Time shifting.}
+Each non-\texttt{silence} training waveform is translated by a random offset $\Delta \sim \mathcal{U}(-T_{\max}, T_{\max})$.
+In the conducted experiments, \(T_{\max}=100\)\,ms, which corresponds to \(\pm 1600\) samples at the \(16\)\,kHz sampling rate. 
+Samples shifted outside the analysis window are discarded, and the newly revealed region is padded with zeros according to Equation~\eqref{eq:time-shift}:
+\begin{equation}
+    \label{eq:time-shift}
+    x_{\text{shift}}[n] = \begin{cases}
+        x[n - \Delta] & \text{for } 0 \le n-\Delta < N,\\
+        0 & \text{otherwise}.
+    \end{cases}
+\end{equation}
+This simulates the temporal uncertainty of a streaming keyword spotter and is one of the earliest and most effective augmentations for KWS \cite{speechcommands,tcnn}.
+
+\paragraph{Background noise mixing.}
+Real environmental noise $n(t)$ is added to the speech signal $x(t)$ at a gain $\alpha \sim \mathcal{U}(0, \alpha_{\max})$.
+In the experiments, background mixing is attempted for each non-\texttt{silence} training example with probability \(p=0.8\), using \(\alpha_{\max}=0.3\), as shown in Equation~\eqref{eq:background-mix}:
+\begin{equation}
+    \label{eq:background-mix}
+    x_{\text{mix}} = \operatorname{clip}(x + \alpha\, n, -1, 1),
+\end{equation}
+where \(n\) is drawn from the prepared training \texttt{silence} pool. 
+Clipping ensures the waveform stays within the valid amplitude range. 
+This augmentation forces the model to focus on robust phonetic cues rather than relying on silence detection.
+
+\paragraph{SpecAugment.}
+Instead of manipulating the raw waveform, SpecAugment \cite{specaugment} applies spectral-domain masking directly to the input feature map $\mathbf{X} \in \mathbb{R}^{F \times T}$. 
+A time mask zeroes out $t_{\text{mask}}$ consecutive time frames, and a frequency mask zeroes out $f_{\text{mask}}$ consecutive frequency bins, with mask widths chosen uniformly at random. Equation~\eqref{eq:specaugment-mask} shows the frequency-mask case:
+\begin{equation}
+    \label{eq:specaugment-mask}
+    \begin{aligned}
+        \mathbf{X}_{f, t} &\leftarrow 0 \\
+        &\text{for } f \in [f_0, f_0 + f_{\text{mask}}),\; t \in [0, T).
+    \end{aligned}
+\end{equation}
+and analogously for time masks. 
+In the experiments, SpecAugment is applied after frontend feature extraction and normalization. Each enabled sample receives one time mask with width sampled from \(0\) to \(10\) frames and one frequency mask with width sampled from \(0\) to \(5\) bins; zero-width masks are skipped.
+This acts as a strong regulariser similar to structured dropout, forcing the network to use distributed features across both time and frequency dimensions.
+
+These three augmentation families are often combined; their individual contributions and interactions are the subject of the controlled \(2\times2\times2\) factorial experiment described in Section~\ref{sec:experiments}.
 
 
 
@@ -112,12 +206,14 @@ All runs used the official train/validation/test split files. BC-ResNet and KWT 
 \label{tab:backbone-settings}
 \smallskip
 \small
-\begin{tabularx}{\textwidth}{@{}l l l l l X@{}}
+\begin{tabularx}{\textwidth}{@{}l l l l l >{\raggedright\arraybackslash}X@{}}
 \toprule
 \textbf{Backbone} & \textbf{Frontend} & \textbf{Optimizer} & \textbf{Batch} & \textbf{Epochs} & \textbf{Key model settings}\\
 \midrule
 BC-ResNet & \(40\)-bin log-Mel & AdamW, \(lr=0.01\) & \(512\) & \(100\) & variant \texttt{bcresnet-1}, base channels \(8\), stage blocks \(2/2/4/4\), dropout \(0.1\) \\
+\midrule
 KWT & \(40\)-bin log-Mel & AdamW, \(lr=10^{-3}\) & \(512\) & \(100\) & \texttt{kwt-1}, \(d\_model=64\), depth \(12\), heads \(1\), MLP dim \(256\), cosine schedule with \(5\)-epoch warmup \\
+\midrule
 MatchboxNet & \(64\)-dim MFCC & NovoGrad, \(lr=0.05\) & \(128\) & \(100\) & \texttt{matchboxnet-3x1x64}, block channels \(64\), kernels \(13/15/17\), conv kernels \(11\) and \(29\), dropout \(0.1\) \\
 \bottomrule
 \end{tabularx}
@@ -136,36 +232,37 @@ Train on all 31 (30 commands + \texttt{silence}) original labels, then remap any
 
 \paragraph*{Strategy B - collapsed training labels}
 
-Collapse all 20 non-target words into a single \texttt{unknown} label before training and train a 12-class classifier directly. This is the most standard and task-aligned protocol, and it is the setup followed BC-ResNet, KWT and MatchboxNet for this particular task \cite{bcresnet,kwt,matchbox}.
+Collapse all 20 non-target words into a single \texttt{unknown} label before training and train a 12-class classifier directly. This is the most standard and task-aligned protocol, and it is the setup followed by BC-ResNet, KWT, and MatchboxNet for this particular task \cite{bcresnet,kwt,matchbox}.
 
 To prevent the \texttt{unknown} category from dominating training, non-target word classes are rebalanced so that the total number of \texttt{unknown} examples is approximately equal to the average size of the target keyword classes. Examples are sampled in a class-aware manner, drawing a similar number of samples from each non-target word class to preserve diversity within the \texttt{unknown} category and avoid over-representation of a few frequent classes.
 
 \paragraph*{Strategy C - two-stage classification}
 
-A hierarchical two-head architecture is used. A shared backbone feeds two classification heads. Head~1 performs 3-way classification into \texttt{silence}, \texttt{unknown}, and \texttt{keyword}. Head~2 performs 10-way classification over the target keywords. During training, the loss of Head~1 is computed for all samples using standard cross-entropy with the corresponding 3-class target. The loss of Head~2 is computed only for samples whose ground-truth label belongs to the 10 target keywords; for \texttt{silence} and \texttt{unknown} samples, the Head~2 loss is masked out and does not contribute to optimization. The total loss is therefore
-\[
+A hierarchical two-head architecture is used. A shared backbone feeds two classification heads. Head~1 performs 3-way classification into \texttt{silence}, \texttt{unknown}, and \texttt{keyword}. Head~2 performs 10-way classification over the target keywords. During training, the loss of Head~1 is computed for all samples using standard cross-entropy with the corresponding 3-class target. The loss of Head~2 is computed only for samples whose ground-truth label belongs to the 10 target keywords; for \texttt{silence} and \texttt{unknown} samples, the Head~2 loss is masked out and does not contribute to optimization. The total loss is given by Equation~\eqref{eq:hierarchical-loss}:
+\begin{equation}
+\label{eq:hierarchical-loss}
 \mathcal{L} = \mathcal{L}_{\text{head1}} + \lambda \,\mathbf{1}[y \in \mathcal{K}]\, \mathcal{L}_{\text{head2}},
-\]
+\end{equation}
 where \(\mathcal{K}\) denotes the set of 10 target keywords, and \(\lambda\) is a scalar weight controlling the contribution of the second head (\(\lambda\) = 1 is used in experiments). During inference, the prediction of Head~1 is used first; Head~2 is consulted only when Head~1 predicts \texttt{keyword}.
 
-For the hierarchical 3-way head (\texttt{silence}/\texttt{unknown}/\texttt{keyword}), class imbalance will be handled by balanced sampling minibatches so that silence, unknown, and keyword are sampled in roughly equal proportions.
+For the hierarchical 3-way head (\texttt{silence}/\texttt{unknown}/\texttt{keyword}), class imbalance is handled by balanced sampling minibatches so that silence, unknown, and keyword are sampled in roughly equal proportions.
 
 \paragraph*{Strategy D - confidence-based rejection with uniform targets}
 
 This strategy is inspired by \textit{Deep Anomaly Detection with Outlier Exposure} \cite{oe}.
-\\
 
-Train only an 11-class classifier for the known classes (\texttt{10 commands + silence}). For non-target training words, encourage a uniform output distribution over the 11 known classes (i.e., the target label for \texttt{unknown} class becomes \([1/11, \dots, 1/11]\)). Then, classify a sample as \texttt{unknown} at inference time if
-\[
+Train only an 11-class classifier for the known classes (\texttt{10 commands + silence}). For non-target training words, encourage a uniform output distribution over the 11 known classes (i.e., the target label for \texttt{unknown} class becomes \([1/11, \dots, 1/11]\)). Then, classify a sample as \texttt{unknown} at inference time when Equation~\eqref{eq:confidence-rejection} holds:
+\begin{equation}
+\label{eq:confidence-rejection}
 \max_k p(y = k \mid x) < \tau.
-\]
-The threshold \(\tau\) is selected based on the highest f1-macro score on the validation set. For fairness, the non-target word pool will use the same class-aware balancing policy as in Strategy~B, so that outlier exposure remains diverse without overwhelming the target keyword classes.
+\end{equation}
+The threshold \(\tau\) is selected based on the highest f1-macro score on the validation set. For fairness, the non-target word pool uses the same class-aware balancing policy as in Strategy~B, so that outlier exposure remains diverse without overwhelming the target keyword classes.
 
 
 \paragraph*{Sampling differences}
 The four unknown-handling strategies were not just label transforms; they also changed the effective sampling regime. Table~\ref{tab:strategy-mechanics} combines the sampler implementation with the prepared dataset counts and shows why the strategies are not directly comparable in terms of exposure per epoch. Strategy~A sees the natural training distribution, Strategies~B and~D downsample through a weighted sampler with replacement, and Strategy~C oversamples the three superclasses by cycling through class buffers to build balanced batches.
 
-\begin{table}[t!]
+\begin{table}[h!]
 \centering
 \caption{Strategy mechanics and effective examples seen per epoch}
 \label{tab:strategy-mechanics}
@@ -186,7 +283,6 @@ D & \(11\)-class training \(+\) confidence-based rejection & same weighted sampl
 \end{tabularx}
 \end{table}
 
-Stage~1 therefore answers two questions at once: whether a different unknown formulation helps, and whether the changed sampling regime hurts or helps.
 
 \subsection*{Stage 2: augmentation grid}
 Stage~2 kept only the best Stage~1 unknown-handling strategy for each backbone and evaluated it on the full \(2\times2\times2\) augmentation grid, where each of the three augmentation factors was either disabled or enabled.
@@ -209,26 +305,27 @@ Table~\ref{tab:stage1-results} shows that Strategy~A won Stage~1 for all three b
 \label{tab:stage1-results}
 \smallskip
 \small
+\setlength{\tabcolsep}{4pt}
 \begin{tabular}{@{}llcccc@{}}
 \toprule
 \textbf{Backbone} & \textbf{Strategy} & \textbf{Validation macro-F1} & \textbf{Test macro-F1} & \textbf{Test accuracy} & \textbf{Selected \(\tau\)}\\
 \midrule
 \multirow{4}{*}{BC-ResNet}
- & A & \textbf{95.00} & 95.64 & 97.24 & -- \\
- & B & 91.04 & 91.80 & 93.98 & -- \\
- & C & 94.75 & 94.39 & 96.32 & -- \\
+ & A & \textbf{95.00} & 95.64 & 97.24 & - \\
+ & B & 91.04 & 91.80 & 93.98 & - \\
+ & C & 94.75 & 94.39 & 96.32 & - \\
  & D & 93.49 & 93.41 & 95.33 & 0.44 \\
 \midrule
 \multirow{4}{*}{KWT}
- & A & \textbf{95.63} & 94.59 & 96.47 & -- \\
- & B & 92.55 & 91.95 & 95.09 & -- \\
- & C & 94.78 & 93.46 & 96.16 & -- \\
+ & A & \textbf{95.63} & 94.59 & 96.47 & - \\
+ & B & 92.55 & 91.95 & 95.09 & - \\
+ & C & 94.78 & 93.46 & 96.16 & - \\
  & D & 94.25 & 93.21 & 95.22 & 0.48 \\
 \midrule
 \multirow{4}{*}{MatchboxNet}
- & A & \textbf{95.17} & 94.66 & 96.62 & -- \\
- & B & 92.12 & 90.99 & 94.04 & -- \\
- & C & 94.13 & 92.99 & 95.88 & -- \\
+ & A & \textbf{95.17} & 94.66 & 96.62 & - \\
+ & B & 92.12 & 90.99 & 94.04 & - \\
+ & C & 94.13 & 92.99 & 95.88 & - \\
  & D & 94.22 & 93.87 & 95.60 & 0.64 \\
 \bottomrule
 \end{tabular}
@@ -238,7 +335,7 @@ These results should be interpreted with caution because the strategies did not 
 
 Figure~\ref{fig:threshold-sweeps} shows the full validation threshold sweeps for Strategy~D. KWT preferred a middle threshold around \(\tau=0.48\), BC-ResNet around \(\tau=0.44\), and MatchboxNet a noticeably larger \(\tau=0.64\). In all three cases the optimum sat in a relatively narrow plateau.
 
-\begin{figure}[t!]
+\begin{figure}[h!]
 \centering
 \reportgraphic[width=0.32\textwidth]{summaries/stage1/threshold_sweep_bcresnet.png}\hfill
 \reportgraphic[width=0.32\textwidth]{summaries/stage1/threshold_sweep_kwt.png}\hfill
@@ -250,7 +347,7 @@ Figure~\ref{fig:threshold-sweeps} shows the full validation threshold sweeps for
 \subsection*{Stage 2: augmentation study}
 Since all Stage~1 winners used Strategy~A, Stage~2 isolates augmentation effects for that strategy alone. Table~\ref{tab:stage2-results} summarizes validation macro-F1, test macro-F1, and test accuracy for the full augmentation grid in one place. The bit order is \((\texttt{time shift}, \texttt{background noise}, \texttt{SpecAugment})\), where \(1\) means enabled and \(0\) means disabled.
 
-\begin{table}[b!]
+\begin{table}[t!]
 \centering
 \caption{Stage 2 augmentation grid summarized by validation macro-F1, test macro-F1, and test accuracy. Augmentation bits denote \((\texttt{time shift}, \texttt{background noise}, \texttt{SpecAugment})\)}
 \label{tab:stage2-results}
@@ -305,7 +402,7 @@ Stage~3 tested whether the best Stage~2 KWT setup could be matched by a shallowe
 
 The competitive Stage~3 candidates were the time-only and dual-branch models. The best validation Stage~3 run was \texttt{attn\_time\_depth\_6\_heads\_2} with validation macro-F1 \(=0.964\), but that still remained below the Stage~2 champion's \(0.967\). The best test Stage~3 run was \texttt{attn\_both\_depth\_6\_heads\_2}, which reached test accuracy \(=97.79\%\) and test macro-F1 \(=0.966\), slightly above the Stage~2 KWT winner in macro-F1 but not in validation evidence. Table~\ref{tab:kwt-paper-comparison} compares the three paper KWT variants, to the seven repository KWT models executed in this project. 
 
-\begin{table}[t!]
+\begin{table}[b!]
 \centering
 \caption{Stage 3 KWT follow-up results with fixed depth \(=6\)}
 \label{tab:stage3-results}
@@ -329,9 +426,9 @@ time & 2 & \textbf{96.44} & 97.69 & 96.33 \\
 The executed KWT runs outperformed the paper KWT accuracies despite using a much shorter training schedule: \(10{,}400\) steps instead of \(23{,}000\) steps with the same batch size \(512\). The strongest efficiency result is given by the reduced depth-\(6\) time-only variants. They contain \(309{,}791\) parameters, which is roughly \(2\times\) fewer than the paper KWT-1 model and much fewer than KWT-2 or KWT-3, yet they still reach \(97.66\)--\(97.69\%\) test accuracy. The Stage~2 depth-\(12\) KWT winner and the Stage~3 dual-branch variants are closer to the paper KWT-1 parameter count, but they also exceed the reported paper accuracies while using less than half as many training steps. The comparison should still be read cautiously because the paper values are multi-run literature summaries whereas the present report is based on single-seed runs.
 
 
-\begin{table}[t!]
+\begin{table}[b!]
 \centering
-\caption{Comparison between the paper KWT family and the seven executed repository KWT models. Repository models used \(10{,}400\) steps with batch size \(512\), whereas the paper models used \(23{,}000\) steps with the same batch size}
+\caption{Comparison between the paper KWT family and the seven KWT models executed in this project. Ours models used \(10{,}400\) steps with batch size \(512\), whereas the paper models used \(23{,}000\) steps with the same batch size}
 \label{tab:kwt-paper-comparison}
 \smallskip
 \small
@@ -345,7 +442,7 @@ The executed KWT runs outperformed the paper KWT accuracies despite using a much
  & KWT-2 & 128 & 512 & 2 & 12 & 2,394K & 97.36 \(\pm\) 0.20 \\
  & KWT-3 & 192 & 768 & 3 & 12 & 5,361K & 97.24 \(\pm\) 0.24 \\
 \midrule
-\multirow{7}{*}{Repo}
+\multirow{7}{*}{Ours}
  & KWT-1, aug 111 & 64 & 256 & 1 & 12 & 608K & 97.83 \\
  & KWT-1, both d6 h1 & 64 & 256 & 1 & 6 & 619K & 97.49 \\
  & KWT-1, both d6 h2 & 64 & 256 & 2 & 6 & 619K & 97.79 \\
@@ -359,7 +456,7 @@ The executed KWT runs outperformed the paper KWT accuracies despite using a much
 }
 \end{table}
 
-
+\subsection*{Confusion matrix analysis}
 
 Figure~\ref{fig:kwt-confusion} gives a closer view of the strongest validation model, \path{kwt_strategy_a_aug_111}. The raw confusion matrix confirms that most residual errors involve only a few labels. On the test set, the largest off-diagonal counts are \texttt{unknown}\(\rightarrow\)\texttt{silence}, \texttt{no}\(\rightarrow\)\texttt{unknown}, \texttt{right}\(\rightarrow\)\texttt{unknown}, and \texttt{go}\(\rightarrow\)\texttt{no}. The normalized confusion matrix leads to the same conclusion: the model is already excellent on \texttt{unknown}, but short and acoustically similar commands remain the limiting cases. Consistent with that picture, the weakest class-wise test F1 values of this run were \texttt{no} \(=0.939\), \texttt{go} \(=0.942\), and \texttt{silence} \(=0.943\).
 
@@ -367,7 +464,7 @@ Figures~\ref{fig:bcresnet-confusion} and~\ref{fig:matchboxnet-confusion} show th
 
 For BC-ResNet, \texttt{bcresnet\_strategy\_a\_aug\_001} the largest remaining issue is \texttt{silence}: recall is perfect, but precision is only \(0.813\), which means that some spoken examples are incorrectly absorbed into the silence class. The weakest class-wise F1 values were \texttt{silence} \(=0.897\), \texttt{down} \(=0.933\), \texttt{go} \(=0.935\), and \texttt{no} \(=0.939\).
 
-For MatchboxNet, \texttt{matchboxnet\_strategy\_a\_aug\_101} it's row-normalized confusion matrix shows a similar pattern to the other strong models: \texttt{unknown} is handled well, but short commands remain the main source of errors. The weakest class-wise F1 values were \texttt{silence} \(=0.911\), \texttt{go} \(=0.929\), \texttt{no} \(=0.940\), and \texttt{right} \(=0.949\).
+For MatchboxNet, \path{matchboxnet_strategy_a_aug_101} shows a similar row-normalized confusion pattern to the other strong models: \texttt{unknown} is handled well, but short commands remain the main source of errors. The weakest class-wise F1 values were \texttt{silence} \(=0.911\), \texttt{go} \(=0.929\), \texttt{no} \(=0.940\), and \texttt{right} \(=0.949\).
 
 
 
@@ -391,7 +488,7 @@ For MatchboxNet, \texttt{matchboxnet\_strategy\_a\_aug\_101} it's row-normalized
 \centering
 \reportgraphic[width=0.48\textwidth]{runs/stage2/matchboxnet_strategy_a_aug_101/seed_1338/plots/confusion_raw.png}\hfill
 \reportgraphic[width=0.48\textwidth]{runs/stage2/matchboxnet_strategy_a_aug_101/seed_1338/plots/confusion_row_normalized.png}
-\caption{Raw and row-normalized test confusion matrices for \texttt{matchboxnet\_strategy\_a\_aug\_101}}
+\caption{Raw and row-normalized test confusion matrices for the best MatchboxNet Stage~2 run}
 \label{fig:matchboxnet-confusion}
 \end{figure}
 
@@ -413,7 +510,7 @@ The most important limitation is statistical. Every configuration was evaluated 
 
 The Stage~1 strategy comparison is also confounded by the sampling regime. Strategy~A uses a full shuffled pass over the natural training set, Strategies~B and~D use weighted sampling with fewer examples per epoch, and Strategy~C uses balanced superclass batches with many more draws per epoch. As a result, equal epoch counts do not imply equal optimizer-step budgets or equal data exposure.
 
-The report does not contain latency, memory, throughput, or energy measurements, although these quantities are central for keyword spotting on edge devices. The comparison with published KWT results should also be interpreted cautiously because the literature values are multi-run summaries, whereas the present repository results are single-run measurements.
+The report does not contain latency, memory, throughput, or energy measurements, although these quantities are central for keyword spotting on edge devices. The comparison with published KWT results should also be interpreted cautiously because the literature values are multi-run summaries, whereas our project results are single-run measurements.
 
 \subsection*{Further work}
 
@@ -452,20 +549,44 @@ Each completed run should contain \path{val_metrics.json}, \path{test_metrics.js
 
 \begin{thebibliography}{99}
 
+\bibitem{speechcommands}
+P. Warden, ``Speech Commands: A Dataset for Limited-Vocabulary Speech Recognition,'' arXiv:1804.03209, 2018.
+
+\bibitem{tcnn}
+T.~N.~Sainath and C.~Parada, ``Convolutional Neural Networks for Small-footprint Keyword Spotting,'' in \textit{Proc. Interspeech}, 2015, pp. 1478--1482.
+
+\bibitem{resnet}
+K.~He, X.~Zhang, S.~Ren, and J.~Sun, ``Deep Residual Learning for Image Recognition,'' in \textit{Proc. CVPR}, 2016, pp. 770--778.
+
+\bibitem{dsconv}
+F.~Chollet, ``Xception: Deep Learning with Depthwise Separable Convolutions,'' in \textit{Proc. CVPR}, 2017, pp. 1251--1258.
+
 \bibitem{bcresnet}
-B. Kim, M. Lee, J. Lee, S. Yang, and K. Hwang, ``Broadcasted Residual Learning for Efficient Keyword Spotting,'' Interspeech, 2021. \url{https://arxiv.org/abs/2106.04140}
+B.~Kim, S.~Chang, J.~Lee, and D.~Sung, ``Broadcasted Residual Learning for Efficient Keyword Spotting,'' in \textit{Proc. Interspeech}, 2021. \url{https://arxiv.org/abs/2106.04140}
+
+\bibitem{vaswani}
+A.~Vaswani, N.~Shazeer, N.~Parmar, J.~Uszkoreit, L.~Jones, A.~N.~Gomez, Ł.~Kaiser, and I.~Polosukhin, ``Attention Is All You Need,'' in \textit{Proc. NeurIPS}, 2017, pp. 5998--6008.
 
 \bibitem{kwt}
-A. Berg, M. O'Connor, and M. Tairum Cruz, ``Keyword Transformer: A Self-Attention Model for Keyword Spotting,'' Interspeech, 2021. \url{https://arxiv.org/abs/2104.00769}
+A.~Berg, M.~O'Connor, and M.~Tairum Cruz, ``Keyword Transformer: A Self-Attention Model for Keyword Spotting,'' in \textit{Proc. Interspeech}, 2021. \url{https://arxiv.org/abs/2104.00769}
+
+\bibitem{matchbox}
+S.~Majumdar and B.~Ginsburg, ``MatchboxNet: 1D Time-Channel Separable Convolutional Neural Network Architecture for Speech Commands Recognition,'' in \textit{Proc. Interspeech}, 2020. \url{https://arxiv.org/abs/2004.08531}
+
+\bibitem{tcresnet}
+S.~Choi, S.~Seo, B.~Shin, H.~Byun, M.~Kersner, B.~Kim, D.~Kim, and S.~Ha, ``Temporal Convolution for Real-time Keyword Spotting on Mobile Devices,'' in \textit{Proc. Interspeech}, 2019, pp. 3372--3376. \url{https://arxiv.org/abs/1904.03814}
+
+\bibitem{openmax}
+A.~Bendale and T.~E.~Boult, ``Towards Open Set Deep Networks,'' in \textit{Proc. CVPR}, 2016, pp. 1563--1572.
+
+\bibitem{oe}
+D.~Hendrycks, M.~Mazeika, and M.~Dietterich, ``Deep Anomaly Detection with Outlier Exposure,'' arXiv:1812.04606, 2018. \url{https://arxiv.org/abs/1812.04606}
+
+\bibitem{specaugment}
+D.~S.~Park, W.~Chan, Y.~Zhang, C.-C.~Chiu, B.~Zoph, E.~D.~Cubuk, and Q.~V.~Le, ``SpecAugment: A Simple Data Augmentation Method for Automatic Speech Recognition,'' in \textit{Proc. Interspeech}, 2019, pp. 2613--2617.
 
 \bibitem{kwtrepo}
 ARM Software, ``keyword-transformer'' (official implementation and training scripts). \url{https://github.com/ARM-software/keyword-transformer}
-
-\bibitem{matchbox}
-S. Majumdar and B. Ginsburg, ``MatchboxNet: 1D Time-Channel Separable Convolutional Neural Network Architecture for Speech Commands Recognition,'' Interspeech, 2020. \url{https://arxiv.org/abs/2004.08531}
-
-\bibitem{oe}
-D. Hendrycks, M. Mazeika, and M. Dietterich, ``Deep Anomaly Detection with Outlier Exposure,'' arXiv:1812.04606, 2018. \url{https://arxiv.org/abs/1812.04606}
 
 \end{thebibliography}
 
